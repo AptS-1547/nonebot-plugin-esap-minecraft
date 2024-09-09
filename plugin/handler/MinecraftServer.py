@@ -2,61 +2,60 @@ import asyncio, re
 
 from mcstatus import BedrockServer, JavaServer
 from mcstatus.status_response import BedrockStatusResponse, JavaStatusResponse
-from esap_minecraft_bot.plugins.esap_minecraft_bot.config import Config as mcPluginConfig
 
-class PingHandler:
+from esap_minecraft_bot.plugins.esap_minecraft_bot.config import Config
 
-    def __init__(self, serverAddress: str, pluginConfig: mcPluginConfig, groupID: int) -> None:
+class MinecraftServer:
+
+    def __init__(self, serverAddress: str, pluginConfig: Config, groupID: int = 0) -> None:
         #一些必要的全局变量
         self.serverAddress = serverAddress
-        self.pluginConfig = pluginConfig
-        self.groupID = groupID
+        self.globalDefaultServer = pluginConfig.mc_global_default_server
+        self.globalDefaultIcon = pluginConfig.mc_global_default_icon
+        self.qqgroupDefaultServer = pluginConfig.mc_qqgroup_default_server
+        self.groupID = str(groupID)
         self.serverType = "Java"
         self.version = ""
-        self.motdFinal = ""
-        self.playerNumber = 0
+        self.motd = ""
+        self.onlinePlayerCount = 0
         self.Icon = ""
-        self.pingLatency = 0.0
-        self.successBedrock = False
 
     async def ping_server(self) -> str | bool:
         """发送Ping请求，成功返回True，失败返回失败原因(str)"""
-        if self.serverAddress != None and self.serverAddress != '':
-            pass
-        elif self.pluginConfig.mc_global_default_server != '':
-            self.serverAddress = self.pluginConfig.mc_global_default_server
-        else:
-            return("没有具体的服务器地址，无法建立连接")
+        print()
+        if self.serverAddress == '':
+            if (self.groupID in self.qqgroupDefaultServer) and ("serverAddress" in self.qqgroupDefaultServer[self.groupID]) and self.qqgroupDefaultServer[self.groupID]["serverAddress"] != "":
+                self.serverAddress = self.qqgroupDefaultServer[self.groupID]["serverAddress"]
+            elif self.globalDefaultServer != '':
+                self.serverAddress = self.globalDefaultServer
+            else:
+                return("没有具体的服务器地址，无法建立连接")
 
         try:
             mc_response = await self.status(self.serverAddress)
             if isinstance(mc_response, BedrockStatusResponse):               #直接使用默认端口会出现此可能：同时开了JE和BE，会先检测出BE，但正常来说应该返回JE
-                self.successBedrock = True
                 self.serverType = "Bedrock"
                 mc_response_java = self.check_java_server(self.serverAddress)       #对JE默认端口Ping，检测JE有无开启，如果没开启扔出ConnectionRefusedError，放到下面解决
                 
                 if isinstance(mc_response_java, JavaStatusResponse):         #是JE的处理
                     self.serverType = "Java"
                     self.version = mc_response_java.version.name
-                    self.playerNumber = mc_response_java.players.online
+                    self.onlinePlayerCount = mc_response_java.players.online
                     self.pingLatency = mc_response_java.latency
                     self.Icon = self.dealing_icon(mc_response_java.icon)
-                    motd = mc_response_java.motd.raw
-                    self.motdFinal = self.dealing_motd(motd) # type: ignore
+                    self.motd = self.dealing_motd(mc_response_java.motd.raw) # type: ignore
                 else:                                                        #是BE的处理
-                    motd = mc_response.motd.raw
                     self.version = mc_response.version.name # type: ignore
-                    self.playerNumber = mc_response.players.online #type: ignore
+                    self.onlinePlayerCount = mc_response.players.online #type: ignore
                     self.pingLatency = mc_response.latency #type: ignore
                     self.Icon = self.dealing_icon()
-                    self.motdFinal = self.dealing_motd(motd) # type: ignore
+                    self.motd = self.dealing_motd(mc_response.motd.raw) # type: ignore
             elif isinstance(mc_response, JavaStatusResponse):                                                            #默认端口只有JE的判断以及数据提取
-                motd = mc_response.motd.raw
                 self.version = mc_response.version.name
-                self.playerNumber = mc_response.players.online
+                self.onlinePlayerCount = mc_response.players.online
                 self.pingLatency = mc_response.latency
                 self.Icon = self.dealing_icon(mc_response.icon)
-                self.motdFinal = self.dealing_motd(motd) # type: ignore
+                self.motd = self.dealing_motd(mc_response.motd.raw) # type: ignore
             
             return True
 
@@ -64,13 +63,12 @@ class PingHandler:
             return("没有具体的服务器地址，无法建立连接")
 
         except ConnectionRefusedError:
-            if self.successBedrock == True:
-                motd = mc_response.motd.raw
+            if self.serverType == "Bedrock":
                 self.version = mc_response.version.name # type: ignore
-                self.playerNumber = mc_response.players.online #type: ignore
+                self.onlinePlayerCount = mc_response.players.online #type: ignore
                 self.pingLatency = mc_response.latency #type: ignore
                 self.Icon = self.dealing_icon()
-                self.motdFinal = self.dealing_motd(motd) # type: ignore
+                self.motd = self.dealing_motd(mc_response.motd.raw) # type: ignore
 
                 return True
             else:
@@ -130,8 +128,7 @@ class PingHandler:
     def check_java_server(self, host: str) -> bool | JavaStatusResponse:
         """判断是不是JavaServer，是的话返回JavaStatusResponse，不是返回False（会被ConnectionRefusedError捕捉）"""
         try:
-            mc_status_java = JavaServer(host).status()
-            return mc_status_java
+            return JavaServer(host).status()
         except:
             return False
 
@@ -155,8 +152,8 @@ class PingHandler:
             icon_final = re.sub(r'data:image/[^;]+;base64,', 'base64://', icon) #获取服务器Icon Base64编码并转换为CQ格式
         elif self.groupID != None:
             icon_final = f"https://tenapi.cn/v2/groupimg?qun={self.groupID}"        #TODO:这里不应该直接用群头像，建议使用自定义（mc_default_server_group）
-        elif self.pluginConfig.mc_global_default_icon != '':
-            icon_final = self.pluginConfig.mc_global_default_icon
+        elif self.globalDefaultIcon != '':
+            icon_final = self.globalDefaultIcon
         else:
             icon_final = "base64://iVBORw0KGgoAAAANSUhEUgAAABQAAAAVCAIAAADJt1n/AAAAKElEQVQ4EWPk5+RmIBcwkasRpG9UM4mhNxpgowFGMARGEwnBIEJVAAAdBgBNAZf+QAAAAABJRU5ErkJggg=="
         return icon_final
