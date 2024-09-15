@@ -4,6 +4,7 @@ from mcstatus import BedrockServer, JavaServer
 from mcstatus.status_response import BedrockStatusResponse, JavaStatusResponse
 
 from esap_minecraft_bot.plugins.esap_minecraft_bot.config import Config
+from esap_minecraft_bot.plugins.esap_minecraft_bot.handler.PictureHandler import PictureHandler
 
 class MinecraftServer:
 
@@ -22,7 +23,6 @@ class MinecraftServer:
 
     async def ping_server(self) -> str | bool:
         """发送Ping请求，成功返回True，失败返回失败原因(str)"""
-        print()
         if self.serverAddress == '':
             if (self.groupID in self.qqgroupDefaultServer) and ("serverAddress" in self.qqgroupDefaultServer[self.groupID]) and self.qqgroupDefaultServer[self.groupID]["serverAddress"] != "":
                 self.serverAddress = self.qqgroupDefaultServer[self.groupID]["serverAddress"]
@@ -80,8 +80,8 @@ class MinecraftServer:
             *(
                 await asyncio.wait(
                     {
-                        asyncio.create_task(self.handle_java(host), name="Get status as Java"),
                         asyncio.create_task(self.handle_bedrock(host), name="Get status as Bedrock"),
+                        asyncio.create_task(self.handle_java(host), name="Get status as Java"),
                     },
                     return_when=asyncio.FIRST_COMPLETED,
                 )
@@ -119,7 +119,6 @@ class MinecraftServer:
         """A wrapper around mcstatus, to compress it in one function."""
         return await (await JavaServer.async_lookup(host)).async_status()
 
-
     async def handle_bedrock(self, host: str) -> BedrockStatusResponse:
         """A wrapper around mcstatus, to compress it in one function."""
         # note: `BedrockServer` doesn't have `async_lookup` method, see it's docstring
@@ -141,13 +140,16 @@ class MinecraftServer:
         elif "extra" in motd:                          #就三种类型，list，str，dict，只剩下dict了直接查有没有extra，看看是不是dict套list
             motd_final = ""
             for text in motd["extra"]:
-                motd_final += text["text"]
+                if isinstance(text, str):              #如果是str直接加上
+                    motd_final += text
+                elif isinstance(text, dict):           #如果是dict，查看key：text
+                    motd_final += text["text"]
         else:                                          #只剩下最后一个可能，直接就只有dict，取key：text
             motd_final = motd["text"]
         return motd_final
 
     def dealing_icon(self, icon: str | None = None) -> str:                   #icon逻辑，如果有Icon先给Icon，没Icon再看自定义Group头像，最后默认黑色
-        #TODO:future:可能会加入定义【Q群默认地址】支持自定义图片
+        """TODO:future:可能会加入定义【Q群默认地址】支持自定义图片"""
         if icon != None and icon != "":
             icon_final = re.sub(r'data:image/[^;]+;base64,', 'base64://', icon) #获取服务器Icon Base64编码并转换为CQ格式
         elif self.groupID != None:
