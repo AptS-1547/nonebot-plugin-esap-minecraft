@@ -1,23 +1,23 @@
 from nonebot import require, logger
 from nonebot.adapters import Bot
+from nonebot_plugin_apscheduler import scheduler as nb_scheduler
+from ..config import Config
+from .MinecraftServer import MinecraftServer as mc_MinecraftServer
 
 require("nonebot_plugin_apscheduler")
-from nonebot_plugin_apscheduler import scheduler as nb_scheduler
-from esap_minecraft_bot.plugins.esap_minecraft_bot.config import Config
-from esap_minecraft_bot.plugins.esap_minecraft_bot.handler.MinecraftServer import MinecraftServer as mc_MinecraftServer
 
 class ServerScaner:
-
     def __init__(self, pluginConfig: Config, bot: Bot | None) -> None:
         """
         初始化 ServerScaner 类
         :param pluginConfig: 插件配置对象
         :param bot: 机器人对象
         """
-        self.scanServerList = [] # 需要扫描的服务器列表
-        self.scanServerNotConnect = [] # 无法连接的服务器列表
-        self.pluginConfig = pluginConfig # 插件配置对象
-        self.bot = bot # 机器人对象
+        self.scanServerList = []  # 需要扫描的服务器列表
+        self.scanServerNotConnect = []  # 无法连接的服务器列表
+        self.pluginConfig = pluginConfig  # 插件配置对象
+        self.bot = bot  # 机器人对象
+
         # 读取需要扫描的服务器配置，将其加入到扫描列表中
         for groupID, value in pluginConfig.mc_qqgroup_default_server.items():
             if groupID.isdecimal() and value["need_scan"].lower() == "true":
@@ -41,39 +41,37 @@ class ServerScaner:
         for scan_config in arg2:
             mcServer = mc_MinecraftServer(scan_config["serverAddress"], self.pluginConfig, scan_config["groupID"])
             pingServerReturn = await mcServer.ping_server()
-            if isinstance(pingServerReturn, str):                #连接不上的反馈
+            if isinstance(pingServerReturn, str):  # 连接不上的反馈
                 if scan_config["groupID"] not in self.scanServerNotConnect:
                     self.scanServerNotConnect.append(scan_config["groupID"])
                     logger.info(f"服务器连接已丢失，错误信息：\n{pingServerReturn}")
-                    await arg3.send_group_msg(group_id=scan_config["groupID"], message="⚠️服务器连接已丢失，错误信息：\n" + pingServerReturn)
+                    await arg3.send_group_msg(group_id=scan_config["groupID"], message=f"⚠️服务器{scan_config["serverAddress"]}连接已丢失")
             else:
                 if scan_config["groupID"] in self.scanServerNotConnect:
                     self.scanServerNotConnect.remove(scan_config["groupID"])
                     logger.info("服务器连接已恢复")
-                    await arg3.send_group_msg(group_id=scan_config["groupID"], message="✅服务器连接已恢复")
+                    await arg3.send_group_msg(group_id=scan_config["groupID"], message=f"✅服务器{scan_config["serverAddress"]}连接已恢复")
 
             del mcServer
-            
 
     def startScaner(self) -> bool:
         """
         启动服务器扫描器
         :return: 是否成功启动
         """
-        if self.scanServerList == []:
-            return(False)
+        if not self.scanServerList:
+            return False
 
         nb_scheduler.add_job(
-            self.run_every_two_minutes, "interval", seconds=2, id="job_scan_server", args=[1], kwargs={"arg2": self.scanServerList, "arg3": self.bot}
+            self.run_every_two_minutes, "interval", minutes=self.pluginConfig.mc_ping_server_interval_second, id="job_scan_server", args=[1], kwargs={"arg2": self.scanServerList, "arg3": self.bot}
         )
-        return(True)
-    
-    def stopScaner(self) -> bool:
+        return True
+
+    def stopScaner(self, deletebot: bool) -> bool:
         """
         停止服务器扫描器
         :return: 是否成功停止
         """
         nb_scheduler.remove_all_jobs()
-        self.bot = None
-        return(True)
-        
+        if deletebot: self.bot = None
+        return True
