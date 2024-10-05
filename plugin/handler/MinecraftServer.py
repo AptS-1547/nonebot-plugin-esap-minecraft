@@ -1,10 +1,10 @@
-import asyncio, re, requests, base64
+import asyncio, re
 
 from mcstatus import BedrockServer, JavaServer
 from mcstatus.status_response import BedrockStatusResponse, JavaStatusResponse
 
-from ..config import Config
-from .PictureDefine import PictureDefine
+from esap_minecraft_bot.plugins.esap_minecraft_bot.config import Config
+from esap_minecraft_bot.plugins.esap_minecraft_bot.handler.PictureHandler import PictureHandler
 
 class MinecraftServer:
 
@@ -15,7 +15,11 @@ class MinecraftServer:
         self.globalDefaultIcon = pluginConfig.mc_global_default_icon
         self.qqgroupDefaultServer = pluginConfig.mc_qqgroup_default_server
         self.groupID = str(groupID)
-        self.pingSuccess = False
+        self.serverType = "Java"
+        self.version = ""
+        self.motd = ""
+        self.onlinePlayerCount = 0
+        self.Icon = ""
 
     async def ping_server(self) -> str | bool:
         """发送Ping请求，成功返回True，失败返回失败原因(str)"""
@@ -29,16 +33,29 @@ class MinecraftServer:
 
         try:
             mc_response = await self.status(self.serverAddress)
-            if isinstance(mc_response, BedrockStatusResponse):               #直接使用默认端口会出现此可能：同时开了JE和BE，会先检测出BE，但正常来说应该返回JE的数据，所以这里需要再次检测一下JE
-                self.pingSuccess = True
+            if isinstance(mc_response, BedrockStatusResponse):               #直接使用默认端口会出现此可能：同时开了JE和BE，会先检测出BE，但正常来说应该返回JE
+                self.serverType = "Bedrock"
                 mc_response_java = self.check_java_server(self.serverAddress)       #对JE默认端口Ping，检测JE有无开启，如果没开启扔出ConnectionRefusedError，放到下面解决
                 
                 if isinstance(mc_response_java, JavaStatusResponse):         #是JE的处理
-                    self.bound_information(serverType="Java", version=mc_response_java.version.name, onlinePlayers=mc_response_java.players.online, pingLatency=mc_response_java.latency, Icon=self.dealing_icon(mc_response_java.icon), MOTD=self.dealing_motd(mc_response_java.motd.raw), maxPlayers=mc_response_java.players.max) # type: ignore
+                    self.serverType = "Java"
+                    self.version = mc_response_java.version.name
+                    self.onlinePlayerCount = mc_response_java.players.online
+                    self.pingLatency = mc_response_java.latency
+                    self.Icon = self.dealing_icon(mc_response_java.icon)
+                    self.motd = self.dealing_motd(mc_response_java.motd.raw) # type: ignore
                 else:                                                        #是BE的处理
-                    self.bound_information(serverType="Bedrock", version=mc_response.version.name, onlinePlayers=mc_response.players.online, pingLatency=mc_response.latency, Icon=self.dealing_icon(), MOTD=self.dealing_motd(mc_response.motd.raw), maxPlayers=mc_response.players.max) # type: ignore
+                    self.version = mc_response.version.name # type: ignore
+                    self.onlinePlayerCount = mc_response.players.online #type: ignore
+                    self.pingLatency = mc_response.latency #type: ignore
+                    self.Icon = self.dealing_icon()
+                    self.motd = self.dealing_motd(mc_response.motd.raw) # type: ignore
             elif isinstance(mc_response, JavaStatusResponse):                                                            #默认端口只有JE的判断以及数据提取
-                self.bound_information(serverType="Java", version=mc_response.version.name, onlinePlayers=mc_response.players.online, pingLatency=mc_response.latency, Icon=self.dealing_icon(mc_response.icon), MOTD=self.dealing_motd(mc_response.motd.raw), maxPlayers=mc_response.players.max) # type: ignore
+                self.version = mc_response.version.name
+                self.onlinePlayerCount = mc_response.players.online
+                self.pingLatency = mc_response.latency
+                self.Icon = self.dealing_icon(mc_response.icon)
+                self.motd = self.dealing_motd(mc_response.motd.raw) # type: ignore
             
             return True
 
@@ -46,8 +63,12 @@ class MinecraftServer:
             return("没有具体的服务器地址，无法建立连接")
 
         except ConnectionRefusedError:
-            if self.pingSuccess:
-                self.bound_information(serverType="Bedrock", version=mc_response.version.name, onlinePlayerCount=mc_response.players.online, pingLatency=mc_response.latency, Icon=self.dealing_icon(), MOTD=self.dealing_motd(mc_response.motd.raw)) # type: ignore
+            if self.serverType == "Bedrock":
+                self.version = mc_response.version.name # type: ignore
+                self.onlinePlayerCount = mc_response.players.online #type: ignore
+                self.pingLatency = mc_response.latency #type: ignore
+                self.Icon = self.dealing_icon()
+                self.motd = self.dealing_motd(mc_response.motd.raw) # type: ignore
 
                 return True
             else:
@@ -103,10 +124,6 @@ class MinecraftServer:
         # note: `BedrockServer` doesn't have `async_lookup` method, see it's docstring
         return await BedrockServer.lookup(host).async_status()
 
-    def bound_information(self, serverType: str = "", version: str = "", onlinePlayers: int = 0, maxPlayers: int = 0, pingLatency: float = 0.0, Icon: str = "", MOTD: str = "") -> None:
-        """绑定服务器信息"""
-        self.serverInformation = {"serverAddress": self.serverAddress, "serverType": serverType, "version": version, "onlinePlayers": onlinePlayers, "maxPlayers": maxPlayers, "pingLatency": pingLatency, "Icon": Icon, "MOTD": MOTD}
-
     def check_java_server(self, host: str) -> bool | JavaStatusResponse:
         """判断是不是JavaServer，是的话返回JavaStatusResponse，不是返回False（会被ConnectionRefusedError捕捉）"""
         try:
@@ -132,18 +149,13 @@ class MinecraftServer:
         return motd_final
 
     def dealing_icon(self, icon: str | None = None) -> str:                   #icon逻辑，如果有Icon先给Icon，没Icon再看自定义Group头像，最后默认黑色
-        """TODO:future:可能会加入定义【Q群默认地址】支持自定义图片 正在完成"""
+        """TODO:future:可能会加入定义【Q群默认地址】支持自定义图片"""
         if icon != None and icon != "":
-            icon_final = re.sub(r'data:image/[^;]+;base64,', '', icon) #获取服务器Icon 并去掉base64图片前缀
+            icon_final = re.sub(r'data:image/[^;]+;base64,', 'base64://', icon) #获取服务器Icon Base64编码并转换为CQ格式
         elif self.groupID != None:
-            response = requests.get(f"https://p.qlogo.cn/gh/{self.groupID}/{self.groupID}/640/")
-            if response.status_code == 200:
-                icon_final = base64.b64encode(response.content).decode('utf-8')        #TODO:这里不应该直接用群头像，建议使用自定义（mc_default_server_group）
-            else:
-                icon_final = PictureDefine.CouldNotFindQGroupPicture
+            icon_final = f"https://tenapi.cn/v2/groupimg?qun={self.groupID}"        #TODO:这里不应该直接用群头像，建议使用自定义（mc_default_server_group）
         elif self.globalDefaultIcon != '':
             icon_final = self.globalDefaultIcon
         else:
-            icon_final = PictureDefine.Black
-
+            icon_final = "base64://iVBORw0KGgoAAAANSUhEUgAAABQAAAAVCAIAAADJt1n/AAAAKElEQVQ4EWPk5+RmIBcwkasRpG9UM4mhNxpgowFGMARGEwnBIEJVAAAdBgBNAZf+QAAAAABJRU5ErkJggg=="
         return icon_final

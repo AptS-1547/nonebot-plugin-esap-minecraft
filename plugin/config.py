@@ -1,12 +1,11 @@
 from pydantic import BaseModel, field_validator
 
 class Config(BaseModel):
-    mc_qqgroup_id: list = []
-    mc_global_default_server: str = ""
-    mc_global_default_icon: str = ""
+    mc_qqgroup_id: list
+    mc_global_default_server: str
+    mc_global_default_icon: str
     mc_ping_server_interval_second: int = 60
-    mc_qqgroup_default_server: dict = {}
-    mc_serverScaner_enable: bool = False
+    mc_qqgroup_default_server: dict
 
     @field_validator("mc_ping_server_interval_second")
     @classmethod
