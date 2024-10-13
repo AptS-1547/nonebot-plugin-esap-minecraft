@@ -34,11 +34,11 @@ class MinecraftServer:
                 mc_response_java = self.check_java_server(self.serverAddress)       #对JE默认端口Ping，检测JE有无开启，如果没开启扔出ConnectionRefusedError，放到下面解决
                 
                 if isinstance(mc_response_java, JavaStatusResponse):         #是JE的处理
-                    self.bound_information(serverType="Java", version=mc_response_java.version.name, onlinePlayers=mc_response_java.players.online, pingLatency=mc_response_java.latency, Icon=self.dealing_icon(mc_response_java.icon), MOTD=self.dealing_motd(mc_response_java.motd.raw), maxPlayers=mc_response_java.players.max) # type: ignore
+                    self.bound_information(serverType="Java", version=mc_response_java.version.name, onlinePlayers=mc_response_java.players.online, pingLatency=mc_response_java.latency, Icon=self.dealing_icon(mc_response_java.icon), MOTD=mc_response_java.motd.parsed, maxPlayers=mc_response_java.players.max)
                 else:                                                        #是BE的处理
-                    self.bound_information(serverType="Bedrock", version=mc_response.version.name, onlinePlayers=mc_response.players.online, pingLatency=mc_response.latency, Icon=self.dealing_icon(), MOTD=self.dealing_motd(mc_response.motd.raw), maxPlayers=mc_response.players.max) # type: ignore
+                    self.bound_information(serverType="Bedrock", version=mc_response.version.name, onlinePlayers=mc_response.players.online, pingLatency=mc_response.latency, Icon=self.dealing_icon(), MOTD=mc_response.motd.parsed, maxPlayers=mc_response.players.max)
             elif isinstance(mc_response, JavaStatusResponse):                                                            #默认端口只有JE的判断以及数据提取
-                self.bound_information(serverType="Java", version=mc_response.version.name, onlinePlayers=mc_response.players.online, pingLatency=mc_response.latency, Icon=self.dealing_icon(mc_response.icon), MOTD=self.dealing_motd(mc_response.motd.raw), maxPlayers=mc_response.players.max) # type: ignore
+                self.bound_information(serverType="Java", version=mc_response.version.name, onlinePlayers=mc_response.players.online, pingLatency=mc_response.latency, Icon=self.dealing_icon(mc_response.icon), MOTD=mc_response.motd.parsed, maxPlayers=mc_response.players.max)
             
             return True
 
@@ -47,7 +47,7 @@ class MinecraftServer:
 
         except ConnectionRefusedError:
             if self.pingSuccess:
-                self.bound_information(serverType="Bedrock", version=mc_response.version.name, onlinePlayerCount=mc_response.players.online, pingLatency=mc_response.latency, Icon=self.dealing_icon(), MOTD=self.dealing_motd(mc_response.motd.raw)) # type: ignore
+                self.bound_information(serverType="Bedrock", version=mc_response.version.name, onlinePlayers=mc_response.players.online, pingLatency=mc_response.latency, Icon=self.dealing_icon(), MOTD=mc_response.motd.parsed, maxPlayers=mc_response.players.max)
 
                 return True
             else:
@@ -103,7 +103,7 @@ class MinecraftServer:
         # note: `BedrockServer` doesn't have `async_lookup` method, see it's docstring
         return await BedrockServer.lookup(host).async_status()
 
-    def bound_information(self, serverType: str = "", version: str = "", onlinePlayers: int = 0, maxPlayers: int = 0, pingLatency: float = 0.0, Icon: str = "", MOTD: str = "") -> None:
+    def bound_information(self, serverType: str = "", version: str = "", onlinePlayers: int = 0, maxPlayers: int = 0, pingLatency: float = 0.0, Icon: str = "", MOTD: list = []) -> None:
         """绑定服务器信息"""
         self.serverInformation = {"serverAddress": self.serverAddress, "serverType": serverType, "version": version, "onlinePlayers": onlinePlayers, "maxPlayers": maxPlayers, "pingLatency": pingLatency, "Icon": Icon, "MOTD": MOTD}
 
@@ -113,23 +113,6 @@ class MinecraftServer:
             return JavaServer(host).status()
         except:
             return False
-
-    def dealing_motd(self, motd: str | list | dict) -> str | list | dict:
-        """TODO:处理MOTD，需要重写来支持图片MOTD颜色"""
-        if isinstance(motd, str):                      #目前还没有检测到返回值为str的，如果是str先直接发过去
-            motd_final = motd
-        elif isinstance(motd, list):                   #目前还没有检测到返回值为list的，如果是list先直接发过去
-            motd_final = motd
-        elif "extra" in motd:                          #就三种类型，list，str，dict，只剩下dict了直接查有没有extra，看看是不是dict套list
-            motd_final = ""
-            for text in motd["extra"]:
-                if isinstance(text, str):              #如果是str直接加上
-                    motd_final += text
-                elif isinstance(text, dict):           #如果是dict，查看key：text
-                    motd_final += text["text"]
-        else:                                          #只剩下最后一个可能，直接就只有dict，取key：text
-            motd_final = motd["text"]
-        return motd_final
 
     def dealing_icon(self, icon: str | None = None) -> str:                   #icon逻辑，如果有Icon先给Icon，没Icon再看自定义Group头像，最后默认黑色
         """TODO:future:可能会加入定义【Q群默认地址】支持自定义图片 正在完成"""

@@ -1,6 +1,7 @@
 import asyncio, base64
 from io import BytesIO
 from typing import Tuple
+import requests
 
 import nonebot
 from nonebot import get_plugin_config, on_command, get_driver, logger
@@ -41,22 +42,22 @@ mcServerScaner = mc_ServerScaner(pluginConfig, None)
 @driver.on_bot_connect
 async def _(bot: Bot):
     if bot.adapter.get_name() != "OneBot V11": return False #定时扫描只支持OneBot V11
-    if not pluginConfig.mc_serverScaner_enable: return False #如果配置文件中没有启用定时扫描则不启动
+    if not pluginConfig.mc_serverscaner_enable: return False #如果配置文件中没有启用定时扫描则不启动
     mcServerScaner.boundBot(bot)
     if mcServerScaner.startScaner():
         logger.info("机器人已上线，已启动对MC服务器的定时扫描")
-        pluginConfig.mc_serverScaner_enable = True
+        pluginConfig.mc_serverscaner_enable = True
         [await bot.send_private_msg(user_id=superuser, message="机器人已上线，已启动对MC服务器的定时扫描") for superuser in nonebot.get_driver().config.superusers]
     else:
         logger.warning("机器人已上线，没有需要扫描的MC服务器, 请检查配置文件")
-        pluginConfig.mc_serverScaner_enable = True
+        pluginConfig.mc_serverscaner_enable = True
         [await bot.send_private_msg(user_id=superuser, message="机器人已上线，没有需要扫描的MC服务器, 请检查配置文件") for superuser in nonebot.get_driver().config.superusers]
 
 #Bot断开连接事件，用ServerScaner类的stopScaner方法停止定时任务
 @driver.on_bot_disconnect
 async def _():
     if mcServerScaner.stopScaner(deletebot = True):
-        pluginConfig.mc_serverScaner_enable = False
+        pluginConfig.mc_serverscaner_enable = False
         logger.info("机器人已下线，已停止对MC服务器的定时扫描")
 
 #命令 ~conf scan start/stop 启动/停止定时扫描
@@ -65,17 +66,17 @@ manage_mcServerScaner = on_command(("conf", "scan", "start"),priority=0,block=Tr
 @manage_mcServerScaner.handle()
 async def _(event: ob_event_PrivateMessageEvent, cmd: Tuple[str, ...] = Command()):
     _, _, action = cmd
-    if action == "start" and not pluginConfig.mc_serverScaner_enable:
+    if action == "start" and not pluginConfig.mc_serverscaner_enable:
         mcServerScaner.startScaner()
-        pluginConfig.mc_serverScaner_enable = True
+        pluginConfig.mc_serverscaner_enable = True
         return_message = "已启动对MC服务器的定时扫描"
-    elif action == "stop" and pluginConfig.mc_serverScaner_enable:
+    elif action == "stop" and pluginConfig.mc_serverscaner_enable:
         mcServerScaner.stopScaner(deletebot = False)
-        pluginConfig.mc_serverScaner_enable = False
+        pluginConfig.mc_serverscaner_enable = False
         return_message = "已停止对MC服务器的定时扫描"
-    elif action == "start" and pluginConfig.mc_serverScaner_enable:
+    elif action == "start" and pluginConfig.mc_serverscaner_enable:
         return_message = "Scaner已经在运行了"
-    elif action == "stop" and not pluginConfig.mc_serverScaner_enable:
+    elif action == "stop" and not pluginConfig.mc_serverscaner_enable:
         return_message = "Scaner已经停止了"
 
     await asyncio.sleep(0.5)

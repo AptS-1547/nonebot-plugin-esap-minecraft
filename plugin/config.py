@@ -6,7 +6,7 @@ class Config(BaseModel):
     mc_global_default_icon: str = ""
     mc_ping_server_interval_second: int = 60
     mc_qqgroup_default_server: dict = {}
-    mc_serverScaner_enable: bool = False
+    mc_serverscaner_enable: bool = False
 
     @field_validator("mc_ping_server_interval_second")
     @classmethod
