@@ -3,7 +3,7 @@ import asyncio, re, requests, base64
 from mcstatus import BedrockServer, JavaServer
 from mcstatus.status_response import BedrockStatusResponse, JavaStatusResponse
 
-from ..config import Config
+from .ConfigHandler import Config
 from .PictureDefine import PictureDefine
 
 class MinecraftServer:

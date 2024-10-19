@@ -32,12 +32,13 @@ class PictureHandler:
 
         # TODO:在图片右方模块写字，按理来说应该让这个函数确定绘制高度
         
-        text_start_height = 60
+        text_start_height = 80
         text_right = f"当前在线玩家数：{self.information['onlinePlayers']}/{self.information['maxPlayers']}"
         self.image, text_start_height = self.right_middle_font(self.image, text_right, text_start_height, 80, (45, 215, 209))
 
         self.image, text_start_height = self.dealing_motd(self.image, text_start_height, self.information["MOTD"])
 
+        text_start_height += 50
         text_right = f"服务器Ping请求所用时间：{round(self.information['pingLatency'],2)}ms"
         self.image, _ = self.right_middle_font(self.image, text_right, text_start_height, 80, (45, 215, 209))
 

@@ -1,7 +1,7 @@
 from nonebot import require, logger
 from nonebot.adapters import Bot
 from nonebot_plugin_apscheduler import scheduler as nb_scheduler
-from ..config import Config
+from .ConfigHandler import Config
 from .MinecraftServer import MinecraftServer as mc_MinecraftServer
 
 require("nonebot_plugin_apscheduler")
@@ -20,8 +20,8 @@ class ServerScaner:
 
         # 读取需要扫描的服务器配置，将其加入到扫描列表中
         for groupID, value in pluginConfig.mc_qqgroup_default_server.items():
-            if groupID.isdecimal() and value["need_scan"].lower() == "true":
-                value["groupID"] = groupID
+            if isinstance(groupID, int) and value["need_scan"]:
+                value["groupID"] = str(groupID)
                 self.scanServerList.append(value)
 
     def boundBot(self, bot: Bot) -> None:

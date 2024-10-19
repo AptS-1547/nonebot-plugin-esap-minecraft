@@ -1,10 +1,10 @@
 import asyncio, base64
 from io import BytesIO
 from typing import Tuple
-import requests
+from pathlib import Path
 
 import nonebot
-from nonebot import get_plugin_config, on_command, get_driver, logger
+from nonebot import on_command, get_driver, logger
 from nonebot.params import CommandArg, Command
 from nonebot.plugin import PluginMetadata
 from nonebot.adapters import Message, Bot
@@ -17,11 +17,16 @@ from nonebot.adapters.onebot.v11.message import Message as ob_message_Message
 from nonebot.permission import SUPERUSER
 from nonebot.adapters.onebot.v11.permission import GROUP_ADMIN, GROUP_OWNER
 
-from .config import Config
+from .handler.ConfigHandler import Config, ConfigHandler
 from .handler.MinecraftServer import MinecraftServer as mc_MinecraftServer
 from .handler.ServerScaner import ServerScaner as mc_ServerScaner
 from .handler.PictureHandler import PictureHandler as mc_PictureHandler
 from .handler.PictureDefine import PictureDefine
+
+# 加载嵌套插件
+sub_plugins = nonebot.load_plugins(
+    str(Path(__file__).parent.joinpath("plugins").resolve())
+)
 
 
 #插件元数据
@@ -29,11 +34,17 @@ __plugin_meta__ = PluginMetadata(
     name="esap_minecraft_bot",
     description="简单的Minecraft插件，支持Ping查询等实用功能",
     usage="",
+    supported_adapters={"nonebot.adapters.onebot"},
     config=Config,
 )
 
-#获取.env文件设置的参数
-pluginConfig = get_plugin_config(Config)
+#TODO:获取.env文件设置的参数，重构中 + 通知机器人管理员
+ConfigObj = ConfigHandler()
+if isinstance(ConfigObj.config, str):
+    logger.error(ConfigObj.config)
+else:
+    print(ConfigObj.config)
+    pluginConfig = ConfigObj.config
 
 #Bot连接事件，用ServerScaner类的startScaner方法启动定时任务
 driver = get_driver()
@@ -59,6 +70,14 @@ async def _():
     if mcServerScaner.stopScaner(deletebot = True):
         pluginConfig.mc_serverscaner_enable = False
         logger.info("机器人已下线，已停止对MC服务器的定时扫描")
+
+#命令 ~conf config reload 重载配置文件
+mc_conf_reload_command = on_command(("conf", "config", "reload"),priority=0,block=True,permission=SUPERUSER)
+
+@mc_conf_reload_command.handle()
+async def _(event: ob_event_PrivateMessageEvent, cmd: Tuple[str, ...] = Command()):
+    await asyncio.sleep(0.5)
+    await mc_conf_reload_command.finish("未完成，你是那啥对吧，管理员对吧，先爬开，我要咕咕")
 
 #命令 ~conf scan start/stop 启动/停止定时扫描
 manage_mcServerScaner = on_command(("conf", "scan", "start"),priority=0,block=True,aliases={("conf", "scan", "stop")},permission=SUPERUSER)
@@ -125,7 +144,6 @@ async def _(event_group: ob_event_GroupMessageEvent, args: Message = CommandArg(
         returnMessage = "未完成，你是那啥对吧，管理员对吧，先爬开，我要咕咕咕"
         await asyncio.sleep(0.5)
         await mc_ping_command.finish(message=returnMessage, at_sender=False)
-
 
 #命令 ~about 显示插件信息
 mc_about = on_command("about", priority=0, block=True)
