@@ -14,8 +14,10 @@ class MinecraftServer:
         self.globalDefaultServer = pluginConfig.mc_global_default_server
         self.globalDefaultIcon = pluginConfig.mc_global_default_icon
         self.qqgroupDefaultServer = pluginConfig.mc_qqgroup_default_server
-        self.groupID = str(groupID)
+        self.groupID = groupID
         self.pingSuccess = False
+
+        print(self.serverAddress, self.globalDefaultServer, self.globalDefaultIcon, self.qqgroupDefaultServer, self.groupID)
 
     async def ping_server(self) -> str | bool:
         """发送Ping请求，成功返回True，失败返回失败原因(str)"""

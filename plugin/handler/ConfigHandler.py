@@ -37,13 +37,9 @@ class ConfigHandler():
             config_dict = {}
             # TODO: 这里的路径应该是相对路径，而不是绝对路径
             with open("***********************") as f:
-                docs = yaml.load_all(f, Loader=yaml.FullLoader)
-                for doc in docs:
-                    for k, v in doc.items():
-                        config_dict[k] = v
+                docs = yaml.load(f, Loader=yaml.FullLoader)
 
-            config = Config(**config_dict)
-            del config_dict
+            config = Config(**docs)
             return config
 
         except FileNotFoundError as e:
