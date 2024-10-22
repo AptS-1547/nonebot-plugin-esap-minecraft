@@ -1,12 +1,30 @@
+"""
+Copyright 2022-2024 The ESAP Project. All rights reserved.
+Use of this source code is governed by a GPL-3.0 license that can be found in the LICENSE file.
+
+图片处理类 PictureHandler.py 2024-10-21
+Author: AptS:1547
+
+PictureHandler类用于处理图片的生成，提供了以下方法：
+MakePicture: 生成最终返回的图片
+open_base64_image: PIL打开base64图片
+round_corner: 给图片加上圆角效果
+left_middle_font: 在图片左方模块写字
+right_middle_font: 在图片右方模块写字
+dealing_motd: 处理MOTD
+check_motd_length: 检查MOTD长度
+"""
+
 import base64
 from io import BytesIO
 from PIL import Image, ImageDraw, ImageFont, UnidentifiedImageError
 
 from mcstatus.motd.components import Formatting, MinecraftColor
 
-from .PictureDefine import PictureDefine
+from .PictureDefine import PictureDefine                               #pylint: disable=relative-beyond-top-level
 
 class PictureHandler:
+    """图片处理类"""
     def __init__(self, information: dict) -> None:
         """
         输入格式：
@@ -14,24 +32,24 @@ class PictureHandler:
             base64image不能有data:image/png;base64,前缀
         """
         self.information = information
-        self.leftFontLocation = PictureDefine.MinecraftFont
-        self.rightFontLocation = PictureDefine.MinecraftFont
+        self.left_font_location = PictureDefine.MinecraftFont
+        self.right_font_location = PictureDefine.MinecraftFont
         self.image = self.open_base64_image(PictureDefine.Background)
-        
-    # 生成最终返回的图片
-    def MakePicture(self) -> Image.Image:
+
+    def make_picture(self) -> Image.Image:
+        """生成最终返回的图片"""
         # 服务器图标
-        Icon = self.open_base64_image(self.information["Icon"]).resize((400, 400))
-        Icon = self.round_corner(Icon, 22)
-        IconAlphaChannel = Icon.split()[-1]
-        self.image.paste(Icon, (215, 200), mask=IconAlphaChannel)
+        icon = self.open_base64_image(self.information["Icon"]).resize((400, 400))
+        icon = self.round_corner(icon, 22)
+        icon_alpha_channel = icon.split()[-1]
+        self.image.paste(icon, (215, 200), mask=icon_alpha_channel)
 
         text_list_left = [self.information["serverAddress"], f"{self.information['serverType']} {self.information['version']}"]
 
         self.image = self.left_middle_font(self.image, text_list_left, (45, 215, 209))
 
         # TODO:在图片右方模块写字，按理来说应该让这个函数确定绘制高度
-        
+
         text_start_height = 80
         text_right = f"当前在线玩家数：{self.information['onlinePlayers']}/{self.information['maxPlayers']}"
         self.image, text_start_height = self.right_middle_font(self.image, text_right, text_start_height, 80, (45, 215, 209))
@@ -44,22 +62,21 @@ class PictureHandler:
 
         return self.image
 
-    # PIL打开base64图片
     def open_base64_image(self, base64_str):
+        """PIL打开base64图片"""
         try:
             image_data = base64.b64decode(base64_str)
-            BytesIO_obj = BytesIO(image_data)
-            img = Image.open(BytesIO_obj)
+            bytesio_obj = BytesIO(image_data)
+            img = Image.open(bytesio_obj)
             return img
         except UnidentifiedImageError:
             image_data = base64.b64decode(PictureDefine.Black)
-            BytesIO_obj = BytesIO(image_data)
-            img = Image.open(BytesIO_obj)
+            bytesio_obj = BytesIO(image_data)
+            img = Image.open(bytesio_obj)
             return img
 
-    #给图片加上圆角效果
-    def round_corner(self, img: Image.Image, rad: int = 0) -> Image.Image:         
-        # 创建一个半径为给定值的黑色圆形图像
+    def round_corner(self, img: Image.Image, rad: int = 0) -> Image.Image:
+        """给图片加上圆角效果"""
         circle = Image.new('L', (rad * 2, rad * 2), 0)
         draw = ImageDraw.Draw(circle)
         draw.ellipse((0, 0, rad * 2, rad * 2), fill=255)
@@ -71,47 +88,52 @@ class PictureHandler:
         alpha.paste(circle.crop((rad, rad, rad * 2, rad * 2)), (w - rad, h - rad))
         img.putalpha(alpha)
         return img
-    
-    # 在图片左方模块写字
+
     def left_middle_font(self, img: Image.Image, text: list, rgb: tuple = (0,0,0)) -> Image.Image:
+        """在图片左方模块写字"""
         draw = ImageDraw.Draw(img)
         font_size = 80
         text_start_height = 682
 
         for text_line in text:
-            font = ImageFont.truetype(self.leftFontLocation, font_size)
+            font = ImageFont.truetype(self.left_font_location, font_size)
             (text_width, text_height), (_, _) = font.font.getsize(text_line)
 
             while text_width > 680:
-                font = ImageFont.truetype(self.leftFontLocation, font_size)
+                font = ImageFont.truetype(self.left_font_location, font_size)
                 (text_width, text_height), (_, _) = font.font.getsize(text_line)
                 font_size -= 1
             draw.text(((830 - text_width) // 2, text_start_height), text_line, font=font, fill=rgb)
             text_start_height += text_height + 50
         return img
-    
+
     def right_middle_font(self, img: Image.Image, text: str, height: int, font_size: int = 80, rgb: tuple = (0,0,0)) -> tuple:
+        """在图片右方模块写字"""
         draw = ImageDraw.Draw(img)
 
-        font = ImageFont.truetype(self.rightFontLocation, font_size)
+        font = ImageFont.truetype(self.right_font_location, font_size)
         (text_width, text_height_right), (_, _) = font.font.getsize(text)
 
         while text_width > 1297:
             font_size -= 1
-            font = ImageFont.truetype(self.rightFontLocation, font_size)
+            font = ImageFont.truetype(self.right_font_location, font_size)
             (text_width, text_height_right), (_, _) = font.font.getsize(text)
-        
+
         draw.text((928, height), text, font=font, fill=rgb)
 
         height = height + 50 + text_height_right
         return img, height
 
-    def dealing_motd(self, img: Image.Image, height: int, motd_parsed: list = []) -> tuple:     #绘制位置（928,180）
-        # 处理MOTD，暂时不作字体样式的处理
-        global index, motd_style, motd_color
+    def dealing_motd(self, img: Image.Image, height: int, motd_parsed = None) -> tuple:     #绘制位置（928,180）
+        """处理MOTD，暂时不作字体样式的处理"""
+        draw = ImageDraw.Draw(img)
+        index, motd_style, motd_color = "", "", ""
         motd_str = ""
         motd_str1 = ""
         motd_str2 = ""
+
+        if motd_parsed is None:
+            motd_parsed = ["epmcbot提示: 本服务器没有MOTD"]
 
         if '\n' in motd_parsed:                # 如果有换行符，获取换行符的位置
             index = motd_parsed.index('\n')
@@ -126,8 +148,8 @@ class PictureHandler:
                     motd_str1 += item
                 elif motd_parsed.index(item) > index:
                     motd_str2 += item
-        
-        if index == -1 : 
+
+        if index == -1 :
             font_size2 = 80
             text_height2 = 70
             font_size1, text_height1  = self.check_motd_length(motd_str)
@@ -136,26 +158,24 @@ class PictureHandler:
             font_size2, text_height2 = self.check_motd_length(motd_str2)
 
         text_height = min(text_height1, text_height2)
-        
-        font = ImageFont.truetype(self.rightFontLocation, font_size1)
+
+        font = ImageFont.truetype(self.right_font_location, font_size1)
         start_text_length = 928
         start_text_height = height
 
         for item in motd_parsed:                   # 开始绘制
             if motd_parsed.index(item) == 0:       # 设置初始绘制的样式和颜色
-                draw = ImageDraw.Draw(img)
                 motd_style = None
                 motd_color = (255,255,255)
             elif item == "\n":  # 绘制第二行 - 准备工作
                 start_text_length = 928
                 start_text_height += text_height + 50
-                font = ImageFont.truetype(self.rightFontLocation, font_size2)
+                font = ImageFont.truetype(self.right_font_location, font_size2)
                 continue
 
             if item == Formatting.RESET and motd_str != "":  # 重置字体样式，并绘制先前已经保存的字符串
                 motd_style = None
                 motd_color = (255,255,255)
-                
             elif isinstance(item, Formatting):   #返回字体样式
                 match item:
                     case Formatting.RESET:
@@ -215,11 +235,12 @@ class PictureHandler:
         return img, height + 100 + text_height*2
 
     def check_motd_length(self, motd: str) -> tuple:
+        """检查MOTD长度"""
         font_size = 80
-        font = ImageFont.truetype(self.rightFontLocation, font_size)
+        font = ImageFont.truetype(self.right_font_location, font_size)
         (text_width, text_height), (_, _) = font.font.getsize(motd)
         while text_width > 1297:
             font_size -= 1
-            font = ImageFont.truetype(self.rightFontLocation, font_size)
+            font = ImageFont.truetype(self.right_font_location, font_size)
             (text_width, text_height), (_, _) = font.font.getsize(motd)
         return (font_size, text_height)

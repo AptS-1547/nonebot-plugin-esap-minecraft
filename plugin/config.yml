@@ -1,11 +1,11 @@
-enable: True
+enable: true
 
 mc_qqgroup_id: [920838753]
 mc_global_default_server: ''
 mc_global_default_icon: 'base64://iVBORw0KGgoAAAANSUhEUgAAABQAAAAVCAIAAADJt1n/AAAAKElEQVQ4EWPk5+RmIBcwkasRpG9UM4mhNxpgowFGMARGEwnBIEJVAAAdBgBNAZf+QAAAAABJRU5ErkJggg=='
 
 mc_ping_server_interval_second: 60
-mc_serverscaner_enable: 'True'
+mc_serverscaner_enable: True
 
 mc_qqgroup_default_server:
   version: 1
@@ -14,8 +14,4 @@ mc_qqgroup_default_server:
       default_icon_type: Server Icon | Picture Internet Address | base64 pic | file route
       default_icon: ""
       need_scan: true | false
-  920838753:
-      serverAddress: mc.esaps.net
-      default_icon_type: Server Icon
-      default_icon": ""
-      need_scan: true
+

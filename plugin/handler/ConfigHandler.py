@@ -1,8 +1,32 @@
-import yaml, os
+"""
+Copyright 2022-2024 The ESAP Project. All rights reserved.
+Use of this source code is governed by a GPL-3.0 license that can be found in the LICENSE file.
+
+配置文件处理类 ConfigHandler.py 2024-10-21
+Author: AptS:1547
+
+ConfigHandler类用于处理配置文件的加载和保存，提供了两个方法：
+load_config: 加载配置文件，返回Config对象，无参数
+save_config: 保存更改的配置文件，返回bool，无参数
+
+"""
+
+import base64, yaml                          #pylint: disable=multiple-imports
 from pydantic import BaseModel, field_validator
 from pydantic import ValidationError
 
+
 class Config(BaseModel):
+    """
+    配置文件模型
+    enable: 是否启用插件
+    mc_qqgroup_id: 监听的QQ群号
+    mc_global_default_server: 默认服务器
+    mc_global_default_icon: 默认服务器图标
+    mc_ping_server_interval_second: 服务器ping间隔
+    mc_qqgroup_default_server: QQ群默认服务器
+    mc_serverscaner_enable: 是否启用服务器扫描
+    """
     enable: bool = False
     mc_qqgroup_id: list = []
     mc_global_default_server: str = ""
@@ -14,6 +38,7 @@ class Config(BaseModel):
     @field_validator("mc_ping_server_interval_second")
     @classmethod
     def _(cls, v: int) -> int:
+        """验证是否大于1"""
         if v >= 1:
             return v
         raise ValueError("mc_ping_server_interval_second must greater than 1")
@@ -21,33 +46,53 @@ class Config(BaseModel):
     @field_validator("mc_global_default_icon")
     @classmethod
     def validate_base64(cls, v: str) -> str:
-        import base64
+        """验证是否为base64字符串"""
         try:
             base64.b64decode(v)
             return v
-        except Exception:
-            raise ValueError("mc_global_default_icon must be a valid base64 string")
+        except Exception as e:
+            raise ValueError("mc_global_default_icon must be a valid base64 string") from e
 
-class ConfigHandler():
+
+class ConfigHandler:
+    """
+    配置文件处理类
+    load_config: 加载配置文件，返回Config对象，无参数
+    save_config: 保存更改的配置文件，返回bool，无参数
+    """
+
     def __init__(self):
+        """初始化配置信息"""
+        self.error = None
         self.config = self.load_config()
 
-    def load_config(self) -> Config | str :
+    def load_config(self) -> Config:
+        """加载配置文件"""
         try:
-            config_dict = {}
+            self.error = None
             # TODO: 这里的路径应该是相对路径，而不是绝对路径
-            with open("***********************") as f:
+            with open("****************************", encoding="utf-8", mode="r") as f:
                 docs = yaml.load(f, Loader=yaml.FullLoader)
+                f.close()
 
             config = Config(**docs)
             return config
 
-        except FileNotFoundError as e:
-            return "[epmc_minecraft_bot] 配置文件不存在！请检查你的配置并重新启动Nonebot！" #TODO:应该新增命令重载配置文件 ~conf reload
-        except ValidationError as e:
-            return "[epmc_minecraft_bot] 配置文件出错！请检查你的配置并重新启动Nonebot！"
+        except FileNotFoundError:
+            # TODO:应该新增命令重载配置文件 ~conf reload
+            self.error =  "[epmc_minecraft_bot] 配置文件不存在！请检查你的配置并重新启动Nonebot！"
+            return Config()
+        except ValidationError:
+            self.error = "[epmc_minecraft_bot] 配置文件出错！请检查你的配置并重新启动Nonebot！"
+            return Config()
+        except:      #pylint: disable=bare-except
+            self.error = "[epmc_minecraft_bot] 配置文件格式错误！请检查你的配置并重新启动Nonebot！"
+            return Config()
 
+    def save_config(self) -> bool:
+        """保存更改的配置文件"""
+        return False
 
-    def save_config(self):
-        pass
-
+    def reload_config(self) -> None:
+        """重载配置文件"""
+        self.config = self.load_config()
