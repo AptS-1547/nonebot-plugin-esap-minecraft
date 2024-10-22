@@ -26,7 +26,7 @@ from nonebot.adapters.onebot.v11.message import Message as ob_message_Message
 from nonebot.permission import SUPERUSER
 from nonebot.adapters.onebot.v11.permission import GROUP_ADMIN, GROUP_OWNER
 
-from .handler.ConfigHandler import Config, ConfigHandler
+from .handler.ConfigHandler import ConfigHandler, Config
 from .handler.MinecraftServer import MinecraftServer as mc_MinecraftServer
 from .handler.ServerScaner import ServerScaner as mc_ServerScaner
 from .handler.PictureHandler import PictureHandler as mc_PictureHandler
@@ -72,7 +72,7 @@ async def _(bot: Bot):
             [await bot.send_private_msg(user_id=superuser, message=pluginConfig.error) for superuser in nonebot.get_driver().config.superusers]   #pylint: disable=expression-not-assigned
         elif not pluginConfig.config.mc_serverscaner_enable or not pluginConfig.config.enable:
             pluginConfig.config.mc_serverscaner_enable = False
-            [await bot.send_private_msg(user_id=superuser, message="机器人已上线，服务器扫描功能处于关闭状态") for superuser in nonebot.get_driver().config.superusers]   #pylint: disable=expression-not-assigned
+            [await bot.send_private_msg(user_id=superuser, message="机器人已上线，插件未启用或者扫描服务器功能未启用") for superuser in nonebot.get_driver().config.superusers]   #pylint: disable=expression-not-assigned
         elif mcServerScaner.start_scaner():
             logger.info("机器人已上线，已启动对MC服务器的定时扫描")
             pluginConfig.config.mc_serverscaner_enable = True
@@ -101,9 +101,7 @@ ConfCommand = on_command(
 async def _(event: ob_event_GroupMessageEvent | ob_event_PrivateMessageEvent, cmd: Message = CommandArg()):  # Q群消息事件响应
     args = cmd.extract_plain_text().split(" ")  # 分割参数
     return_message = "未知的参数"
-    if pluginConfig.config.enable is False and args[0] not in ["reload", "get", "set"]:
-        return False
-    elif isinstance(event, ob_event_GroupMessageEvent) and event.group_id in pluginConfig.config.mc_qqgroup_id:
+    if isinstance(event, ob_event_GroupMessageEvent) and event.group_id in pluginConfig.config.mc_qqgroup_id:
         return_message = "你是那啥，管理员是吧，还没写完，我要咕咕咕，等我写完再来找我吧"
     elif isinstance(event, ob_event_PrivateMessageEvent) and str(event.user_id) in globalConfig.superusers:
         return_message = await handle_superuser_conf_command(args, pluginConfig)
@@ -165,8 +163,8 @@ async def reload_plugin_config(plugin_config: ConfigHandler) -> str:
         return_message = plugin_config
     elif mcServerScaner.stop_scaner(deletebot=True):
         plugin_config.config.mc_serverscaner_enable = False
-        if plugin_config.config.enable is False:
-            return_message = "重载配置文件，插件未启用，无法重启对MC服务器的定时扫描"
+        if plugin_config.config.enable or plugin_config.config.mc_serverscaner_enable is False:
+            return_message = "重载配置文件，插件未启用或者未启用扫描服务器，无法重启对MC服务器的定时扫描"
         elif mcServerScaner.start_scaner():
             plugin_config.config.mc_serverscaner_enable = True
             logger.info("[epmc_minecraft_bot] 重载配置文件，已重启对MC服务器的定时扫描")
@@ -219,8 +217,9 @@ async def handle_superuser_conf_command(args: list[str], plugin_config: ConfigHa
                 return_message = "参数错误，正确用法：~conf set 参数名 参数值"
             else:
                 plugin_config.config.__setattr__(args[1], value)
-                # TODO: 保存配置文件
-                return_message = str(type(plugin_config.config.__getattribute__(args[1])))
+                plugin_config.save_config()
+                return_message = f"已写入参数： {args[1]} = {str(value)}。插件重载中……"
+                await reload_plugin_config(plugin_config)
 
         case "reload":
             return_message = await reload_plugin_config(pluginConfig)

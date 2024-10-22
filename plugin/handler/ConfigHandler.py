@@ -5,9 +5,10 @@ Use of this source code is governed by a GPL-3.0 license that can be found in th
 配置文件处理类 ConfigHandler.py 2024-10-21
 Author: AptS:1547
 
-ConfigHandler类用于处理配置文件的加载和保存，提供了两个方法：
+ConfigHandler类用于处理配置文件的加载和保存，提供了三个方法：
 load_config: 加载配置文件，返回Config对象，无参数
 save_config: 保存更改的配置文件，返回bool，无参数
+reload_config: 重载配置文件，无参数
 
 """
 
@@ -71,7 +72,7 @@ class ConfigHandler:
         try:
             self.error = None
             # TODO: 这里的路径应该是相对路径，而不是绝对路径
-            with open("****************************", encoding="utf-8", mode="r") as f:
+            with open("C:\\Users\\esaps\\Desktop\\esap_minecraft_bot\\esap_minecraft_bot\\plugins\\esap_minecraft_bot\\config.yml", encoding="utf-8", mode="r") as f:
                 docs = yaml.load(f, Loader=yaml.FullLoader)
                 f.close()
 
@@ -79,19 +80,26 @@ class ConfigHandler:
             return config
 
         except FileNotFoundError:
-            # TODO:应该新增命令重载配置文件 ~conf reload
-            self.error =  "[epmc_minecraft_bot] 配置文件不存在！请检查你的配置并重新启动Nonebot！"
+            self.error =  "[epmc_minecraft_bot] 配置文件不存在！请检查你的配置并重载配置文件！"
             return Config()
         except ValidationError:
-            self.error = "[epmc_minecraft_bot] 配置文件出错！请检查你的配置并重新启动Nonebot！"
+            self.error = "[epmc_minecraft_bot] 配置文件出错！请检查你的配置并重载配置文件！"
             return Config()
         except:      #pylint: disable=bare-except
-            self.error = "[epmc_minecraft_bot] 配置文件格式错误！请检查你的配置并重新启动Nonebot！"
+            self.error = "[epmc_minecraft_bot] 配置文件格式错误！请检查你的配置并重载配置文件！"
             return Config()
 
     def save_config(self) -> bool:
         """保存更改的配置文件"""
-        return False
+        try:
+            with open("C:\\Users\\esaps\\Desktop\\esap_minecraft_bot\\esap_minecraft_bot\\plugins\\esap_minecraft_bot\\config.yml", encoding="utf-8", mode="w") as f:
+                config_dict = {"enable": self.config.enable, "mc_qqgroup_id":self.config.mc_qqgroup_id, "mc_global_default_server": self.config.mc_global_default_server, "mc_global_default_icon": self.config.mc_global_default_icon, "mc_ping_server_interval_second": self.config.mc_ping_server_interval_second, "mc_qqgroup_default_server": self.config.mc_qqgroup_default_server, "mc_serverscaner_enable": self.config.mc_serverscaner_enable}
+                yaml.dump(config_dict, f)
+                del config_dict
+                f.close()
+            return True
+        except:       #pylint: disable=bare-except
+            return False
 
     def reload_config(self) -> None:
         """重载配置文件"""
