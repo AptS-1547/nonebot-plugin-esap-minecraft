@@ -35,6 +35,7 @@ class Config(BaseModel):
     mc_ping_server_interval_second: int = 60
     mc_qqgroup_default_server: dict = {}
     mc_serverscaner_enable: bool = False
+    mc_serverscaner_status: bool = False
 
     @field_validator("mc_ping_server_interval_second")
     @classmethod
@@ -64,15 +65,15 @@ class ConfigHandler:
 
     def __init__(self):
         """初始化配置信息"""
-        self.error = None
+        self.error = ""
         self.config = self.load_config()
 
     def load_config(self) -> Config:
         """加载配置文件"""
         try:
-            self.error = None
+            self.error = ""
             # TODO: 这里的路径应该是相对路径，而不是绝对路径
-            with open("C:\\Users\\esaps\\Desktop\\esap_minecraft_bot\\esap_minecraft_bot\\plugins\\esap_minecraft_bot\\config.yml", encoding="utf-8", mode="r") as f:
+            with open("****************************", encoding="utf-8", mode="r") as f:
                 docs = yaml.load(f, Loader=yaml.FullLoader)
                 f.close()
 
