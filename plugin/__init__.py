@@ -10,7 +10,6 @@ Minecraft插件主文件，用于处理Minecraft服务器的Ping查询等功能
 
 import base64
 import asyncio
-import ast  # pylint: disable=multiple-imports
 from io import BytesIO
 from pathlib import Path
 
@@ -29,7 +28,7 @@ from nonebot.permission import SUPERUSER
 from nonebot.adapters.onebot.v11.permission import GROUP_ADMIN, GROUP_OWNER
 
 from .handler.MessageDefine import MessageDefine
-from .handler.ConfigHandler import ConfigHandler, Config
+from .handler.ConfigHandler import ConfigHandler, Config, convert_string
 from .handler.MinecraftServer import MinecraftServer as mc_MinecraftServer
 from .handler.ServerScaner import ServerScaner as mc_ServerScaner
 from .handler.PictureHandler import PictureHandler as mc_PictureHandler
@@ -196,8 +195,7 @@ async def reload_plugin_config() -> str:
 
 async def handle_groupadmin_conf_command(args: list[str], plugin_config: ConfigHandler, groupid: int = 0) -> str:
     """处理~conf GroupAdmin命令调用"""
-    config_list = ["default_icon", "default_icon_type",
-                   "need_scan", "serverAddress"]
+    
     match args[0]:
         case "status":
             return_message = MessageDefine().command_groupadmin_status_message(
@@ -206,29 +204,11 @@ async def handle_groupadmin_conf_command(args: list[str], plugin_config: ConfigH
             return_message = MessageDefine.public_groupadmin_command_help
 
         case "get":
-            if len(args) != 2 or args[1] not in config_list:
-                return_message = MessageDefine.args_error_get_command
-            else:
-                return_message = str(
-                    plugin_config.config.mc_qqgroup_default_server[groupid][args[1]])
-                if return_message == "":
-                    return_message = MessageDefine.conf_is_none
+            return_message = plugin_config.get_config(args, groupid)
 
         case "set":
-            try:
-                value = convert_string(args[2])
-                if len(args) != 3 or args[1] not in config_list:
-                    return_message = MessageDefine.args_error_set_command
-                else:
-                    plugin_config.config.mc_qqgroup_default_server[groupid][args[1]] = value
-                    plugin_config.save_config()
-                    return_message = MessageDefine(
-                    ).command_set_sueccess(args[1], args[2])
-                    await reload_plugin_config()
-            except IndexError:
-                return_message = MessageDefine.conf_get_args_is_none
-            except (ValueError, SyntaxError):
-                return_message = MessageDefine.args_error_set_command
+            return_message = plugin_config.set_config(args, groupid)
+            await reload_plugin_config()
 
         case _:
             return_message = MessageDefine.args_do_not_exist
@@ -240,8 +220,6 @@ async def handle_groupadmin_conf_command(args: list[str], plugin_config: ConfigH
 
 async def handle_superuser_conf_command(args: list[str], plugin_config: ConfigHandler) -> str:
     """处理~conf Superuser命令调用"""
-    config_list = ["enable", "mc_qqgroup_id", "mc_global_default_server", "mc_global_default_icon",
-                   "mc_ping_server_interval_second", "mc_qqgroup_default_server", "mc_serverscaner_enable"]
     match args[0]:
         case "qqgroup":
             try:
@@ -313,36 +291,13 @@ async def handle_superuser_conf_command(args: list[str], plugin_config: ConfigHa
                 return_message = MessageDefine.scanner_already_stopped
 
         case "get":
-            if len(args) != 2 or args[1] not in config_list:
-                return_message = MessageDefine.args_error_get_command
-            else:
-                return_message = str(
-                    plugin_config.config.__getattribute__(args[1]))
-                if return_message == "":
-                    return_message = MessageDefine.conf_is_none
+            return_message = plugin_config.get_config(args, 0)
 
         case "set":
-            try:
-                value = convert_string(args[2])
-                if len(args) != 3 or args[1] not in config_list:
-                    return_message = MessageDefine.args_error_set_command
-                else:
-                    plugin_config.config.__setattr__(args[1], value)
-                    plugin_config.save_config()
-                    return_message = MessageDefine(
-                    ).command_set_sueccess(args[1], args[2])
-                    await reload_plugin_config()
-            except IndexError:
-                return_message = MessageDefine.conf_get_args_is_none
-            except (ValueError, SyntaxError):
-                return_message = MessageDefine.args_error_set_command
+            return_message = plugin_config.set_config(args, 0)
+            await reload_plugin_config()
 
         case _:
             return_message = MessageDefine.args_do_not_exist
 
     return return_message
-
-
-def convert_string(value: str) -> bool | int | float | str | dict:
-    """尝试将字符串转换为对应的类型"""
-    return ast.literal_eval(value)

@@ -12,10 +12,15 @@ reload_config: 重载配置文件，无参数
 
 """
 
-import base64, yaml                          #pylint: disable=multiple-imports
+import base64, ast, yaml                          #pylint: disable=multiple-imports
 from pydantic import BaseModel, field_validator
 from pydantic import ValidationError
 
+from .MessageDefine import MessageDefine          #pylint: disable=relative-beyond-top-level
+
+def convert_string(value: str) -> bool | int | float | str | dict:
+    """尝试将字符串转换为对应的类型"""
+    return ast.literal_eval(value)
 
 class Config(BaseModel):
     """
@@ -67,13 +72,17 @@ class ConfigHandler:
         """初始化配置信息"""
         self.error = ""
         self.config = self.load_config()
+        self.config_list_group = ["default_icon", "default_icon_type",
+                   "need_scan", "serverAddress"]
+        self.config_list_superuser = ["enable", "mc_qqgroup_id", "mc_global_default_server", "mc_global_default_icon",
+                   "mc_ping_server_interval_second", "mc_qqgroup_default_server", "mc_serverscaner_enable"]
 
     def load_config(self) -> Config:
         """加载配置文件"""
         try:
             self.error = ""
             # TODO: 这里的路径应该是相对路径，而不是绝对路径
-            with open("", encoding="utf-8", mode="r") as f:
+            with open("C:\\Users\\esaps\\Desktop\\esap_minecraft_bot\\esap_minecraft_bot\\plugins\\esap_minecraft_bot\\config.yml", encoding="utf-8", mode="r") as f:
                 docs = yaml.safe_load(f)
                 f.close()
 
@@ -105,3 +114,43 @@ class ConfigHandler:
     def reload_config(self) -> None:
         """重载配置文件"""
         self.config = self.load_config()
+
+    def get_config(self, args: list[str], groupid: int = 0) -> str:
+        """获取配置文件"""
+        if len(args) != 2 or (args[1] not in self.config_list_group and args[1] not in self.config_list_superuser):
+                return_message = MessageDefine.args_error_get_command
+        elif groupid == 0:
+            return_message = MessageDefine().command_get_sueccess(args[1], str(
+                self.config.__getattribute__(args[1])))
+            if return_message == "":
+                return_message = MessageDefine.conf_is_none
+        else:
+            return_message = MessageDefine().command_get_sueccess(args[1], str(
+                self.config.mc_qqgroup_default_server[groupid][args[1]]))
+            if return_message == "":
+                return_message = MessageDefine.conf_is_none
+            
+        return return_message
+
+    def set_config(self, args: list[str], groupid: int = 0) -> str:
+        """设置配置文件"""
+        try:
+            value = convert_string(args[2])
+            if len(args) != 3 or (args[1] not in self.config_list_superuser and args[1] not in self.config_list_group):
+                return_message = MessageDefine.args_error_set_command
+            elif groupid == 0:
+                self.config.__setattr__(args[1], value)
+                self.save_config()
+                return_message = MessageDefine(
+                ).command_set_sueccess(args[1], args[2])
+            else:
+                self.config.mc_qqgroup_default_server[groupid][args[1]] = value
+                self.save_config()
+                return_message = MessageDefine(
+                ).command_set_sueccess(args[1], args[2])
+        except IndexError:
+            return_message = MessageDefine.conf_get_args_is_none
+        except (ValueError, SyntaxError):
+            return_message = MessageDefine.args_error_set_command
+        
+        return return_message

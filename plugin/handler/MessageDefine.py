@@ -43,6 +43,10 @@ class MessageDefine:                                     #pylint: disable=missin
     conf_is_none = "此条参数值为None"
     conf_get_args_is_none = "参数不能为空\n输入~conf help查看参数信息"
 
+    def command_get_sueccess(self, key: str = "", value: str = "") -> str:
+        """获取参数成功"""
+        return f"参数： {key} = {value}"
+
     def command_set_sueccess(self, key: str = "", value: str = "") -> str:
         """设置参数成功"""
         return f"已写入参数： {key} = {value}。插件重载中……"
