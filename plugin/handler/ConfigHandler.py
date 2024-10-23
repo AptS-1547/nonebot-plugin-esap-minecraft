@@ -35,6 +35,7 @@ class Config(BaseModel):
     mc_ping_server_interval_second: int = 60
     mc_qqgroup_default_server: dict = {}
     mc_serverscaner_enable: bool = False
+    mc_serverscaner_status: bool = False
 
     @field_validator("mc_ping_server_interval_second")
     @classmethod
@@ -64,16 +65,16 @@ class ConfigHandler:
 
     def __init__(self):
         """初始化配置信息"""
-        self.error = None
+        self.error = ""
         self.config = self.load_config()
 
     def load_config(self) -> Config:
         """加载配置文件"""
         try:
-            self.error = None
+            self.error = ""
             # TODO: 这里的路径应该是相对路径，而不是绝对路径
-            with open("C:\\Users\\esaps\\Desktop\\esap_minecraft_bot\\esap_minecraft_bot\\plugins\\esap_minecraft_bot\\config.yml", encoding="utf-8", mode="r") as f:
-                docs = yaml.load(f, Loader=yaml.FullLoader)
+            with open("", encoding="utf-8", mode="r") as f:
+                docs = yaml.safe_load(f)
                 f.close()
 
             config = Config(**docs)
@@ -92,7 +93,7 @@ class ConfigHandler:
     def save_config(self) -> bool:
         """保存更改的配置文件"""
         try:
-            with open("C:\\Users\\esaps\\Desktop\\esap_minecraft_bot\\esap_minecraft_bot\\plugins\\esap_minecraft_bot\\config.yml", encoding="utf-8", mode="w") as f:
+            with open("****************************", encoding="utf-8", mode="w") as f:
                 config_dict = {"enable": self.config.enable, "mc_qqgroup_id":self.config.mc_qqgroup_id, "mc_global_default_server": self.config.mc_global_default_server, "mc_global_default_icon": self.config.mc_global_default_icon, "mc_ping_server_interval_second": self.config.mc_ping_server_interval_second, "mc_qqgroup_default_server": self.config.mc_qqgroup_default_server, "mc_serverscaner_enable": self.config.mc_serverscaner_enable}
                 yaml.dump(config_dict, f)
                 del config_dict

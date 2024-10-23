@@ -38,8 +38,8 @@ class ServerScaner:
     def add_scan_server(self) -> None:
         """ 读取需要扫描的服务器配置，将其加入到扫描列表中"""
         self.scan_server_list = []
-        for groupid, value in self.plugin_config.mc_qqgroup_default_server.items():
-            if isinstance(groupid, int) and value["need_scan"]:
+        for groupid, value in self.plugin_config.mc_qqgroup_default_server.items():                     # TODO:这什么鬼变量啊，为什么下标是群号dict里面也放一个群号？你tm当时脑残了啊？
+            if isinstance(groupid, int) and value["need_scan"] and value["serverAddress"]:
                 value["groupID"] = str(groupid)
                 self.scan_server_list.append(value)
 
