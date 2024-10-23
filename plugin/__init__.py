@@ -106,6 +106,8 @@ async def _(event: ob_event_GroupMessageEvent | ob_event_PrivateMessageEvent, cm
         return_message = await handle_groupadmin_conf_command(args, pluginConfig)
     elif isinstance(event, ob_event_PrivateMessageEvent) and str(event.user_id) in globalConfig.superusers:
         return_message = await handle_superuser_conf_command(args, pluginConfig)
+    else:
+        return False
     await asyncio.sleep(0.5)  # 延时0.5s 防止风控
     await ConfCommand.finish(return_message)
 
