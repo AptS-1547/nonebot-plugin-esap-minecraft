@@ -12,15 +12,24 @@ reload_config: 重载配置文件，无参数
 
 """
 
-import base64, ast, yaml                          #pylint: disable=multiple-imports
+import base64
+import ast
+import re  # pylint: disable=multiple-imports
+from io import BytesIO
+from pathlib import Path
+
+import yaml
+from PIL import Image
 from pydantic import BaseModel, field_validator
 from pydantic import ValidationError
 
-from .MessageDefine import MessageDefine          #pylint: disable=relative-beyond-top-level
+from .MessageDefine import MessageDefine  # pylint: disable=relative-beyond-top-level
+
 
 def convert_string(value: str) -> bool | int | float | str | dict:
     """尝试将字符串转换为对应的类型"""
     return ast.literal_eval(value)
+
 
 class Config(BaseModel):
     """
@@ -34,12 +43,17 @@ class Config(BaseModel):
     mc_serverscaner_enable: 是否启用服务器扫描
     """
     enable: bool = False
-    mc_qqgroup_id: list = []
+    mc_qqgroup_id: list = [int]
+
+    mc_serverscaner_enable: bool = False
+    mc_vwl_enable: bool = False
+    mc_vwl_file_path: str = ""
+
     mc_global_default_server: str = ""
     mc_global_default_icon: str = ""
     mc_ping_server_interval_second: int = 60
     mc_qqgroup_default_server: dict = {}
-    mc_serverscaner_enable: bool = False
+
     mc_serverscaner_status: bool = False
 
     @field_validator("mc_ping_server_interval_second")
@@ -50,15 +64,33 @@ class Config(BaseModel):
             return v
         raise ValueError("mc_ping_server_interval_second must greater than 1")
 
+    @field_validator("mc_global_default_server")
+    @classmethod
+    def validate_server(cls, v: str) -> str:
+        """验证是否为服务器地址"""
+        re_server_str = r"^(1\d{2}|2[0-4]\d|25[0-5]|[1-9]\d|[1-9])\.(1\d{2}|2[0-4]\d|25[0-5]|[1-9]\d|\d)\.(1\d{2}|2[0-4]\d|25[0-5]|[1-9]\d|\d)\.(1\d{2}|2[0-4]\d|25[0-5]|[1-9]\d|\d)$"
+        re_web_str = r"^[a-zA-Z0-9.-]+(:[0-9]{1,5})?$"
+        if v == "":
+            return v
+        if re.match(re_server_str, v) or re.match(re_web_str, v):
+            return v
+        raise ValueError(
+            "mc_global_default_server must be a valid server address")
+
     @field_validator("mc_global_default_icon")
     @classmethod
     def validate_base64(cls, v: str) -> str:
         """验证是否为base64字符串"""
+        if v == "":
+            return v
         try:
-            base64.b64decode(v)
+            image_data = base64.b64decode(v)
+            bytesio_obj = BytesIO(image_data)
+            Image.open(bytesio_obj)
             return v
         except Exception as e:
-            raise ValueError("mc_global_default_icon must be a valid base64 string") from e
+            raise ValueError(
+                "mc_global_default_icon must be a valid base64 string") from e
 
 
 class ConfigHandler:
@@ -71,18 +103,19 @@ class ConfigHandler:
     def __init__(self):
         """初始化配置信息"""
         self.error = ""
-        self.config = self.load_config()
         self.config_list_group = ["default_icon", "default_icon_type",
-                   "need_scan", "serverAddress"]
+                                  "need_scan", "serverAddress"]
         self.config_list_superuser = ["enable", "mc_qqgroup_id", "mc_global_default_server", "mc_global_default_icon",
-                   "mc_ping_server_interval_second", "mc_qqgroup_default_server", "mc_serverscaner_enable"]
+                                      "mc_ping_server_interval_second", "mc_qqgroup_default_server", "mc_serverscaner_enable"]
+        self.config_file_path = Path(__file__).parent.parent / "config.yml"
+        self.config = self.load_config()
 
     def load_config(self) -> Config:
         """加载配置文件"""
         try:
             self.error = ""
             # TODO: 这里的路径应该是相对路径，而不是绝对路径
-            with open("C:\\Users\\esaps\\Desktop\\esap_minecraft_bot\\esap_minecraft_bot\\plugins\\esap_minecraft_bot\\config.yml", encoding="utf-8", mode="r") as f:
+            with open(self.config_file_path, encoding="utf-8", mode="r") as f:
                 docs = yaml.safe_load(f)
                 f.close()
 
@@ -90,25 +123,26 @@ class ConfigHandler:
             return config
 
         except FileNotFoundError:
-            self.error =  "[epmc_minecraft_bot] 配置文件不存在！请检查你的配置并重载配置文件！"
+            self.error = "[epmc_minecraft_bot] 配置文件不存在！请检查你的配置并重载配置文件！"
             return Config()
-        except ValidationError:
-            self.error = "[epmc_minecraft_bot] 配置文件出错！请检查你的配置并重载配置文件！"
+        except ValidationError as e:
+            self.error = "[epmc_minecraft_bot] 配置文件出错！请检查你的配置并重载配置文件！\n" + e.errors()[0]["msg"]
             return Config()
-        except:      #pylint: disable=bare-except
-            self.error = "[epmc_minecraft_bot] 配置文件格式错误！请检查你的配置并重载配置文件！"
+        except Exception as e:              # pylint: disable=broad-except
+            self.error = "[epmc_minecraft_bot] 配置文件格式错误！请检查你的配置并重载配置文件！" + str(e)
             return Config()
 
     def save_config(self) -> bool:
         """保存更改的配置文件"""
         try:
-            with open("****************************", encoding="utf-8", mode="w") as f:
-                config_dict = {"enable": self.config.enable, "mc_qqgroup_id":self.config.mc_qqgroup_id, "mc_global_default_server": self.config.mc_global_default_server, "mc_global_default_icon": self.config.mc_global_default_icon, "mc_ping_server_interval_second": self.config.mc_ping_server_interval_second, "mc_qqgroup_default_server": self.config.mc_qqgroup_default_server, "mc_serverscaner_enable": self.config.mc_serverscaner_enable}
+            with open(self.config_file_path, encoding="utf-8", mode="w") as f:
+                config_dict = {"enable": self.config.enable, "mc_qqgroup_id": self.config.mc_qqgroup_id, "mc_global_default_server": self.config.mc_global_default_server, "mc_global_default_icon": self.config.mc_global_default_icon,
+                               "mc_ping_server_interval_second": self.config.mc_ping_server_interval_second, "mc_qqgroup_default_server": self.config.mc_qqgroup_default_server, "mc_serverscaner_enable": self.config.mc_serverscaner_enable}
                 yaml.dump(config_dict, f)
                 del config_dict
                 f.close()
             return True
-        except:       #pylint: disable=bare-except
+        except:  # pylint: disable=bare-except
             return False
 
     def reload_config(self) -> None:
@@ -118,7 +152,7 @@ class ConfigHandler:
     def get_config(self, args: list[str], groupid: int = 0) -> str:
         """获取配置文件"""
         if len(args) != 2 or (args[1] not in self.config_list_group and args[1] not in self.config_list_superuser):
-                return_message = MessageDefine.args_error_get_command
+            return_message = MessageDefine.args_error_get_command
         elif groupid == 0:
             return_message = MessageDefine().command_get_sueccess(args[1], str(
                 self.config.__getattribute__(args[1])))
@@ -129,7 +163,7 @@ class ConfigHandler:
                 self.config.mc_qqgroup_default_server[groupid][args[1]]))
             if return_message == "":
                 return_message = MessageDefine.conf_is_none
-            
+
         return return_message
 
     def set_config(self, args: list[str], groupid: int = 0) -> str:
@@ -152,5 +186,5 @@ class ConfigHandler:
             return_message = MessageDefine.conf_get_args_is_none
         except (ValueError, SyntaxError):
             return_message = MessageDefine.args_error_set_command
-        
+
         return return_message
