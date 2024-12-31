@@ -12,7 +12,8 @@ class MessageDefine:                                     #pylint: disable=missin
     """定义一些变量，用于存储命令的帮助信息"""
     private_superuser_command_help = "喵喵ap~ SuperUser菜单\n--------------------\n~conf help 展开本菜单\n~conf status 查看插件状态\n~conf reload 重载插件\n~conf scan start/stop 启动/停止服务器扫描\n~conf get 参数名 获取参数值\n~conf set 参数名 参数值 设置参数值\n~conf qqgroup add/del QQ群号\n\n--------------------\n参数名列表：\n   enable\n   mc_qqgroup_id\n   mc_global_default_server\n   mc_global_default_icon\n   mc_ping_server_interval_second\n   mc_qqgroup_default_server\n   mc_serverscaner_enable"
     public_groupadmin_command_help = "喵喵ap~ GroupAdmin菜单\n--------------------\n~conf help 展开本菜单\n~conf status 查看插件状态\n~conf get 参数名 获取参数值\n~conf set 参数名 参数值 设置参数值\n\n--------------------\n参数名列表：\n   default_icon\n   default_icon_type\n   need_scan\n   serverAddress"
-    group_help_message = "喵喵ap~ 人机菜单\n--------------------\n✅ ~help 展开本菜单\n✅ ~ping <服务器地址> 查询服务器状态\n⚠️ ~vwl 白名单管理\n⚠️ ~conf 机器人设置"
+    public_vwl_command_help = "喵喵ap~ 白名单管理菜单\n--------------------\n~vwl help 展开本菜单\n~vwl add/del 玩家名称 添加/删除白名单\n~vwl list 查看白名单列表"
+    group_help_message = "喵喵ap~ 人机菜单\n--------------------\n✅ ~help 展开本菜单\n✅ ~ping <服务器地址> 查询服务器状态\n🚧 ~vwl 白名单管理\n🆗 ~conf 机器人设置"
 
     bot_is_connected_with_scanner = "[epmc_minecraft_bot] 机器人已上线，已启动对MC服务器的定时扫描"
     bot_is_connected_without_scanner = "[epmc_minecraft_bot] 机器人已上线，插件未启用或者未启用扫描服务器，无法启动对MC服务器的定时扫描"

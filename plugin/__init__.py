@@ -15,10 +15,12 @@ from pathlib import Path
 
 import nonebot
 from nonebot import on_command, on_message, get_driver, logger
-from nonebot.params import CommandArg, Command
+from nonebot.params import CommandArg
 from nonebot.plugin import PluginMetadata
 from nonebot.adapters import Message, Bot
 from nonebot.rule import to_me
+
+from nonebot.adapters.onebot.v11 import Bot as ob_Bot
 
 from nonebot.adapters.onebot.v11.event import GroupMessageEvent as ob_event_GroupMessageEvent
 from nonebot.adapters.onebot.v11.event import PrivateMessageEvent as ob_event_PrivateMessageEvent
@@ -61,6 +63,27 @@ else:
     pluginConfig.config = pluginConfig.config
     logger.info("[epmc_minecraft_bot] 配置文件加载成功")
 
+
+# 参数分割函数
+def split_args(args: str) -> list[str]:
+    """参数分割函数"""
+    return_list = []
+    if globalConfig.command_sep is not None:
+        str_args = ""
+        for i in globalConfig.command_sep:
+            str_args += args.replace(i, " ")
+        return_list = args.split(" ")
+    else:
+        return_list = args.split(" " and ".")
+    return return_list
+
+# 回复前先发送一个贴纸
+async def before_handle_message(bot: ob_Bot, message_id: str):
+    """发送一个贴纸"""
+    await asyncio.sleep(0.5)
+    await bot.call_api("set_msg_emoji_like", message_id = message_id, emoji_id = 181, set = True)
+
+
 # Bot连接事件，用ServerScaner类的start_scaner方法启动定时任务
 driver = get_driver()
 mcServerScaner = mc_ServerScaner(pluginConfig.config)
@@ -90,7 +113,6 @@ async def _(bot: Bot):
 
 # Bot断开连接事件，用ServerScaner类的stopScaner方法停止定时任务
 
-
 @driver.on_bot_disconnect
 async def _():
     if mcServerScaner.stop_scaner(deletebot=True):
@@ -99,31 +121,15 @@ async def _():
     else:
         logger.warning(MessageDefine.bot_is_disconnected_without_scanner)
 
-# 命令 ~conf 执行配置命令
-ConfCommand = on_command(
-    "conf", priority=0, block=True, permission=GROUP_OWNER | GROUP_ADMIN | SUPERUSER)
-
-
-@ConfCommand.handle()
-async def _(event: ob_event_GroupMessageEvent | ob_event_PrivateMessageEvent, cmd: Message = CommandArg()):  # Q群消息事件响应
-    args = cmd.extract_plain_text().split(" ")  # 分割参数
-    return_message = ""
-    if isinstance(event, ob_event_GroupMessageEvent) and event.group_id in pluginConfig.config.mc_qqgroup_id:
-        return_message = await handle_groupadmin_conf_command(args, pluginConfig, event.group_id)
-    elif isinstance(event, ob_event_PrivateMessageEvent) and str(event.user_id) in globalConfig.superusers:
-        return_message = await handle_superuser_conf_command(args, pluginConfig)
-    else:
-        return False
-    await asyncio.sleep(0.5)  # 延时0.5s 防止风控
-    await ConfCommand.finish(return_message)
 
 # 命令 ~help 展开命令列表
 HelpCommand = on_command("help", priority=0, block=True)
 
 
 @HelpCommand.handle()
-async def _(event: ob_event_GroupMessageEvent):  # Q群消息事件响应
+async def _(event: ob_event_GroupMessageEvent, bot: ob_Bot):  # Q群消息事件响应
     if event.group_id in pluginConfig.config.mc_qqgroup_id and pluginConfig.config.enable:  # 确认Q群在获准名单内
+        await before_handle_message(bot, str(event.message_id))
         await asyncio.sleep(0.5)  # 延时0.5s 防止风控
         await HelpCommand.finish(MessageDefine.group_help_message, at_sender=True)
 
@@ -131,8 +137,9 @@ async def _(event: ob_event_GroupMessageEvent):  # Q群消息事件响应
 AtBotCommand = on_message(rule=to_me(), priority=0, block=True)
 
 @AtBotCommand.handle()
-async def _(event: ob_event_GroupMessageEvent):  # Q群消息事件响应
-    if event.group_id in pluginConfig.config.mc_qqgroup_id and pluginConfig.config.enable:
+async def _(event: ob_event_GroupMessageEvent, bot: ob_Bot):  # Q群消息事件响应
+    if event.group_id in pluginConfig.config.mc_qqgroup_id and pluginConfig.config.enable:  # 确认Q群在获准名单内
+        await before_handle_message(bot, str(event.message_id))
         await asyncio.sleep(0.5)  # 延时0.5s 防止风控
         await HelpCommand.finish(MessageDefine.group_help_message, at_sender=True)
 
@@ -141,11 +148,12 @@ PingCommand = on_command("ping", priority=0, block=True)
 
 
 @PingCommand.handle()
-async def _(event_group: ob_event_GroupMessageEvent, args: Message = CommandArg()):
-    if event_group.group_id in pluginConfig.config.mc_qqgroup_id and pluginConfig.config.enable:  # 确认Q群在获准名单内
+async def _(event: ob_event_GroupMessageEvent, bot: ob_Bot, args: Message = CommandArg()):
+    if event.group_id in pluginConfig.config.mc_qqgroup_id and pluginConfig.config.enable:  # 确认Q群在获准名单内
+        await before_handle_message(bot, str(event.message_id))
 
         mc_server = mc_MinecraftServer(
-            args.extract_plain_text(), pluginConfig.config, event_group.group_id)
+            args.extract_plain_text(), pluginConfig.config, event.group_id)
 
         ping_server_return = await mc_server.ping_server()
         if isinstance(ping_server_return, str):          # 如果返回的是字符串，说明出现了错误
@@ -165,13 +173,46 @@ async def _(event_group: ob_event_GroupMessageEvent, args: Message = CommandArg(
         await asyncio.sleep(0.5)
         await PingCommand.finish(message=return_message, at_sender=True)
 
+# 命令 ~vwl 执行VelocityWhiteList命令
+VwlCommand = on_command("vwl", priority=0, block=True)
+
+#TODO: 应该设计为私聊/群聊可以使用这个命令，但是私聊需要保存服务器管理员的QQ号才能确定在修改哪个服务器的白名单
+@VwlCommand.handle()
+async def _(event_group: ob_event_GroupMessageEvent, cmd: Message = CommandArg()):
+    args = split_args(cmd.extract_plain_text()) # 分割参数
+    return_message = await handle_vwl_command(args, pluginConfig, event_group.group_id)
+    await asyncio.sleep(0.5)  # 延时0.5s 防止风控
+    await VwlCommand.finish(return_message)
+
+
+# 命令 ~conf 执行配置命令
+ConfCommand = on_command(
+    "conf", priority=0, block=True, permission=GROUP_OWNER | GROUP_ADMIN | SUPERUSER)
+
+
+@ConfCommand.handle()
+async def _(event: ob_event_GroupMessageEvent | ob_event_PrivateMessageEvent, bot: ob_Bot, cmd: Message = CommandArg()):  # Q群消息事件响应
+    args = cmd.extract_plain_text().split(" ")  # 分割参数
+    return_message = ""
+    if isinstance(event, ob_event_GroupMessageEvent) and event.group_id in pluginConfig.config.mc_qqgroup_id:
+        await before_handle_message(bot, str(event.message_id))
+        return_message = await handle_groupadmin_conf_command(args, pluginConfig, event.group_id)
+    elif isinstance(event, ob_event_PrivateMessageEvent) and str(event.user_id) in globalConfig.superusers:
+        await before_handle_message(bot, str(event.message_id))
+        return_message = await handle_superuser_conf_command(args, pluginConfig)
+    else:
+        return False
+    await asyncio.sleep(0.5)  # 延时0.5s 防止风控
+    await ConfCommand.finish(return_message)
+
 # 命令 ~about 显示插件信息
 AboutCommand = on_command("about", priority=0, block=True)
 
 
 @AboutCommand.handle()
-async def _(event: ob_event_GroupMessageEvent):  # Q群消息事件响应
+async def _(event: ob_event_GroupMessageEvent, bot: ob_Bot):  # Q群消息事件响应
     if event.group_id in pluginConfig.config.mc_qqgroup_id and pluginConfig.config.enable:  # 确认Q群在获准名单内
+        await before_handle_message(bot, str(event.message_id))
         await asyncio.sleep(0.5)  # 延时0.5s 防止风控
         await AboutCommand.finish(ob_message_MessageSegment.image(PictureDefine.about), at_sender=True)
 
@@ -200,12 +241,36 @@ async def reload_plugin_config() -> str:
         return_message = MessageDefine.logger_reload_sth_wrong
     return return_message
 
+
+# 处理~vwl命令调用
+
+
+async def handle_vwl_command(args: list[str], plugin_config: ConfigHandler, groupid: int = 0) -> str:
+    """处理~vwl命令调用"""
+    match args[0]:
+        case "help":
+            return_message = MessageDefine.public_vwl_command_help + "\n Under Construction"
+
+        case "add":
+            pass
+
+        case "del":
+            pass
+
+        case "list":
+            pass
+
+        case _:
+            return_message = MessageDefine.args_do_not_exist
+
+    return return_message
+
 # 处理~conf GroupAdmin命令调用
 
 
 async def handle_groupadmin_conf_command(args: list[str], plugin_config: ConfigHandler, groupid: int = 0) -> str:
     """处理~conf GroupAdmin命令调用"""
-    
+
     match args[0]:
         case "status":
             return_message = MessageDefine().command_groupadmin_status_message(
