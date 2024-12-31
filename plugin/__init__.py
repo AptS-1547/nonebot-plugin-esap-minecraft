@@ -14,10 +14,11 @@ from io import BytesIO
 from pathlib import Path
 
 import nonebot
-from nonebot import on_command, get_driver, logger
+from nonebot import on_command, on_message, get_driver, logger
 from nonebot.params import CommandArg, Command
 from nonebot.plugin import PluginMetadata
 from nonebot.adapters import Message, Bot
+from nonebot.rule import to_me
 
 from nonebot.adapters.onebot.v11.event import GroupMessageEvent as ob_event_GroupMessageEvent
 from nonebot.adapters.onebot.v11.event import PrivateMessageEvent as ob_event_PrivateMessageEvent
@@ -123,6 +124,15 @@ HelpCommand = on_command("help", priority=0, block=True)
 @HelpCommand.handle()
 async def _(event: ob_event_GroupMessageEvent):  # Q群消息事件响应
     if event.group_id in pluginConfig.config.mc_qqgroup_id and pluginConfig.config.enable:  # 确认Q群在获准名单内
+        await asyncio.sleep(0.5)  # 延时0.5s 防止风控
+        await HelpCommand.finish(MessageDefine.group_help_message, at_sender=True)
+
+# 对只@机器人的消息进行回复
+AtBotCommand = on_message(rule=to_me(), priority=0, block=True)
+
+@AtBotCommand.handle()
+async def _(event: ob_event_GroupMessageEvent):  # Q群消息事件响应
+    if event.group_id in pluginConfig.config.mc_qqgroup_id and pluginConfig.config.enable:
         await asyncio.sleep(0.5)  # 延时0.5s 防止风控
         await HelpCommand.finish(MessageDefine.group_help_message, at_sender=True)
 
