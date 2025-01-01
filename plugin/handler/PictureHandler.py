@@ -44,7 +44,7 @@ class PictureHandler:
         icon_alpha_channel = icon.split()[-1]
         self.image.paste(icon, (215, 200), mask=icon_alpha_channel)
 
-        text_list_left = [self.information["serverAddress"], f"{self.information['serverType']} {self.information['version']}"]
+        text_list_left = [self.information["server_address"], f"{self.information['serverType']} {self.information['version']}"]
 
         self.image = self.left_middle_font(self.image, text_list_left, (45, 215, 209))
 
