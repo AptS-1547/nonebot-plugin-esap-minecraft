@@ -11,7 +11,7 @@ MessageDefine类用于存储命令的帮助信息
 class MessageDefine:                                     #pylint: disable=missing-module-docstring, invalid-name, too-few-public-methods
     """定义一些变量，用于存储命令的帮助信息"""
     private_superuser_command_help = "喵喵ap~ SuperUser菜单\n--------------------\n~conf help 展开本菜单\n~conf status 查看插件状态\n~conf reload 重载插件\n~conf scan start/stop 启动/停止服务器扫描\n~conf get 参数名 获取参数值\n~conf set 参数名 参数值 设置参数值\n~conf qqgroup add/del QQ群号\n\n--------------------\n参数名列表：\n   enable\n   mc_qqgroup_id\n   mc_global_default_server\n   mc_global_default_icon\n   mc_ping_server_interval_second\n   mc_qqgroup_default_server\n   mc_serverscaner_enable"
-    public_groupadmin_command_help = "喵喵ap~ GroupAdmin菜单\n--------------------\n~conf help 展开本菜单\n~conf status 查看插件状态\n~conf get 参数名 获取参数值\n~conf set 参数名 参数值 设置参数值\n\n--------------------\n参数名列表：\n   default_icon\n   default_icon_type\n   need_scan\n   serverAddress"
+    public_groupadmin_command_help = "喵喵ap~ GroupAdmin菜单\n--------------------\n~conf help 展开本菜单\n~conf status 查看插件状态\n~conf get 参数名 获取参数值\n~conf set 参数名 参数值 设置参数值\n\n--------------------\n参数名列表：\n   default_icon\n   default_icon_type\n   need_scan\n   server_address"
     public_vwl_command_help = "喵喵ap~ 白名单管理菜单\n--------------------\n~vwl help 展开本菜单\n~vwl add/del 玩家名称 添加/删除白名单\n~vwl list 查看白名单列表"
     group_help_message = "喵喵ap~ 人机菜单\n--------------------\n✅ ~help 展开本菜单\n✅ ~ping <服务器地址> 查询服务器状态\n🚧 ~vwl 白名单管理\n🆗 ~conf 机器人设置"
 
@@ -56,7 +56,7 @@ class MessageDefine:                                     #pylint: disable=missin
         """插件状态信息"""
         scan_server = ""
         for server in scan_server_list:
-            scan_server += f"\n   {server['groupID']}: {server['serverAddress']} "
+            scan_server += f"\n   {server['groupID']}: {server['server_address']} "
         return f"插件状态：{plugin_enable}\n服务器扫描器状态：{scaner_enable}\n服务器扫描列表：{scan_server}"
     
     def command_groupadmin_status_message(self, plugin_enable: bool = False, scaner_enable: bool = False) -> str:

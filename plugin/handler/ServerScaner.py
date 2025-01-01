@@ -39,7 +39,7 @@ class ServerScaner:
         """ 读取需要扫描的服务器配置，将其加入到扫描列表中"""
         self.scan_server_list = []
         for groupid, value in self.plugin_config.mc_qqgroup_default_server.items():                     # TODO:这什么鬼变量啊，为什么下标是群号dict里面也放一个群号？你tm当时脑残了啊？
-            if isinstance(groupid, int) and value["need_scan"] and value["serverAddress"]:
+            if isinstance(groupid, int) and value["need_scan"] and value["server_address"]:
                 value["groupID"] = str(groupid)
                 self.scan_server_list.append(value)
 
@@ -58,18 +58,18 @@ class ServerScaner:
         :param arg3: 机器人对象
         """
         for scan_config in arg2:
-            mc_server = mc_MinecraftServer(scan_config["serverAddress"], self.plugin_config, scan_config["groupID"])
+            mc_server = mc_MinecraftServer(scan_config["server_address"], self.plugin_config, scan_config["groupID"])
             ping_server_return = await mc_server.ping_server()
             if isinstance(ping_server_return, str):  # 连接不上的反馈
                 if scan_config["groupID"] not in self.scan_server_not_connect:
                     self.scan_server_not_connect.append(scan_config["groupID"])
                     logger.info(f"服务器连接已丢失，错误信息：\n{ping_server_return}")
-                    await arg3.send_group_msg(group_id=scan_config["groupID"], message=f"⚠️服务器{scan_config["serverAddress"]}连接已丢失")
+                    await arg3.send_group_msg(group_id=scan_config["groupID"], message=f"⚠️服务器{scan_config["server_address"]}连接已丢失")
             else:
                 if scan_config["groupID"] in self.scan_server_not_connect:
                     self.scan_server_not_connect.remove(scan_config["groupID"])
                     logger.info("服务器连接已恢复")
-                    await arg3.send_group_msg(group_id=scan_config["groupID"], message=f"✅服务器{scan_config["serverAddress"]}连接已恢复")
+                    await arg3.send_group_msg(group_id=scan_config["groupID"], message=f"✅服务器{scan_config["server_address"]}连接已恢复")
 
             del mc_server
 

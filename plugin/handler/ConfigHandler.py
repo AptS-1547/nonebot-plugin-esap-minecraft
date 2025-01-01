@@ -104,7 +104,7 @@ class ConfigHandler:
         """初始化配置信息"""
         self.error = ""
         self.config_list_group = ["default_icon", "default_icon_type",
-                                  "need_scan", "serverAddress"]
+                                  "need_scan", "server_address"]
         self.config_list_superuser = ["enable", "mc_qqgroup_id", "mc_global_default_server", "mc_global_default_icon",
                                       "mc_ping_server_interval_second", "mc_qqgroup_default_server", "mc_serverscaner_enable"]
         self.config_file_path = Path(__file__).parent.parent / "config.yml"
@@ -169,7 +169,11 @@ class ConfigHandler:
     def set_config(self, args: list[str], groupid: int = 0) -> str:
         """设置配置文件"""
         try:
-            value = convert_string(args[2])
+            if args[1] == "need_scan":
+                value = convert_string(args[2])
+            else:
+                value = args[2]
+
             if len(args) != 3 or (args[1] not in self.config_list_superuser and args[1] not in self.config_list_group):
                 return_message = MessageDefine.args_error_set_command
             elif groupid == 0:
@@ -178,7 +182,9 @@ class ConfigHandler:
                 return_message = MessageDefine(
                 ).command_set_sueccess(args[1], args[2])
             else:
+                print(args[1])
                 self.config.mc_qqgroup_default_server[groupid][args[1]] = value
+                print("here")
                 self.save_config()
                 return_message = MessageDefine(
                 ).command_set_sueccess(args[1], args[2])

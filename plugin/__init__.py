@@ -309,7 +309,7 @@ async def handle_superuser_conf_command(args: list[str], plugin_config: ConfigHa
                             # TODO:这什么鬼变量啊，为什么下标是群号dict里面也放一个群号？你tm当时脑残了啊？
                             plugin_config.config.mc_qqgroup_id.append(value)
                         if value not in plugin_config.config.mc_qqgroup_default_server:
-                            server_config = {'serverAddress': None, 'default_icon_type': 'Server Icon',
+                            server_config = {'server_address': None, 'default_icon_type': 'Server Icon',
                                              'default_icon': '', 'need_scan': False, 'groupID': value}
                             plugin_config.config.mc_qqgroup_default_server[value] = server_config
                             del server_config
