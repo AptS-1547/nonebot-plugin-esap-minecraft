@@ -10,7 +10,7 @@ mc_serverscaner_enable: True
 mc_qqgroup_default_server:
   version: 1
   group_id:
-      serverAddress: 0.0.0.0[:8080]
+      server_address: 0.0.0.0[:8080]
       default_icon_type: Server Icon | Picture Internet Address | base64 pic | file route
       default_icon: ""
       need_scan: true | false
