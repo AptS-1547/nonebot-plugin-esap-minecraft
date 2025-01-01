@@ -10,15 +10,17 @@ Minecraft插件主文件，用于处理Minecraft服务器的Ping查询等功能
 
 import base64
 import asyncio
-import ast  # pylint: disable=multiple-imports
 from io import BytesIO
 from pathlib import Path
 
 import nonebot
-from nonebot import on_command, get_driver, logger
-from nonebot.params import CommandArg, Command
+from nonebot import on_command, on_message, get_driver, logger
+from nonebot.params import CommandArg
 from nonebot.plugin import PluginMetadata
 from nonebot.adapters import Message, Bot
+from nonebot.rule import to_me
+
+from nonebot.adapters.onebot.v11 import Bot as ob_Bot
 
 from nonebot.adapters.onebot.v11.event import GroupMessageEvent as ob_event_GroupMessageEvent
 from nonebot.adapters.onebot.v11.event import PrivateMessageEvent as ob_event_PrivateMessageEvent
@@ -29,7 +31,7 @@ from nonebot.permission import SUPERUSER
 from nonebot.adapters.onebot.v11.permission import GROUP_ADMIN, GROUP_OWNER
 
 from .handler.MessageDefine import MessageDefine
-from .handler.ConfigHandler import ConfigHandler, Config
+from .handler.ConfigHandler import ConfigHandler, Config, convert_string
 from .handler.MinecraftServer import MinecraftServer as mc_MinecraftServer
 from .handler.ServerScaner import ServerScaner as mc_ServerScaner
 from .handler.PictureHandler import PictureHandler as mc_PictureHandler
@@ -61,6 +63,27 @@ else:
     pluginConfig.config = pluginConfig.config
     logger.info("[epmc_minecraft_bot] 配置文件加载成功")
 
+
+# 参数分割函数
+def split_args(args: str) -> list[str]:
+    """参数分割函数"""
+    return_list = []
+    if globalConfig.command_sep is not None:
+        str_args = ""
+        for i in globalConfig.command_sep:
+            str_args += args.replace(i, " ")
+        return_list = args.split(" ")
+    else:
+        return_list = args.split(" " and ".")
+    return return_list
+
+# 回复前先发送一个贴纸
+async def before_handle_message(bot: ob_Bot, message_id: str):
+    """发送一个贴纸"""
+    await asyncio.sleep(0.5)
+    await bot.call_api("set_msg_emoji_like", message_id = message_id, emoji_id = 181, set = True)
+
+
 # Bot连接事件，用ServerScaner类的start_scaner方法启动定时任务
 driver = get_driver()
 mcServerScaner = mc_ServerScaner(pluginConfig.config)
@@ -90,7 +113,6 @@ async def _(bot: Bot):
 
 # Bot断开连接事件，用ServerScaner类的stopScaner方法停止定时任务
 
-
 @driver.on_bot_disconnect
 async def _():
     if mcServerScaner.stop_scaner(deletebot=True):
@@ -99,31 +121,25 @@ async def _():
     else:
         logger.warning(MessageDefine.bot_is_disconnected_without_scanner)
 
-# 命令 ~conf 执行配置命令
-ConfCommand = on_command(
-    "conf", priority=0, block=True, permission=GROUP_OWNER | GROUP_ADMIN | SUPERUSER)
-
-
-@ConfCommand.handle()
-async def _(event: ob_event_GroupMessageEvent | ob_event_PrivateMessageEvent, cmd: Message = CommandArg()):  # Q群消息事件响应
-    args = cmd.extract_plain_text().split(" ")  # 分割参数
-    return_message = ""
-    if isinstance(event, ob_event_GroupMessageEvent) and event.group_id in pluginConfig.config.mc_qqgroup_id:
-        return_message = await handle_groupadmin_conf_command(args, pluginConfig, event.group_id)
-    elif isinstance(event, ob_event_PrivateMessageEvent) and str(event.user_id) in globalConfig.superusers:
-        return_message = await handle_superuser_conf_command(args, pluginConfig)
-    else:
-        return False
-    await asyncio.sleep(0.5)  # 延时0.5s 防止风控
-    await ConfCommand.finish(return_message)
 
 # 命令 ~help 展开命令列表
 HelpCommand = on_command("help", priority=0, block=True)
 
 
 @HelpCommand.handle()
-async def _(event: ob_event_GroupMessageEvent):  # Q群消息事件响应
+async def _(event: ob_event_GroupMessageEvent, bot: ob_Bot):  # Q群消息事件响应
     if event.group_id in pluginConfig.config.mc_qqgroup_id and pluginConfig.config.enable:  # 确认Q群在获准名单内
+        await before_handle_message(bot, str(event.message_id))
+        await asyncio.sleep(0.5)  # 延时0.5s 防止风控
+        await HelpCommand.finish(MessageDefine.group_help_message, at_sender=True)
+
+# 对只@机器人的消息进行回复
+AtBotCommand = on_message(rule=to_me(), priority=0, block=True)
+
+@AtBotCommand.handle()
+async def _(event: ob_event_GroupMessageEvent, bot: ob_Bot):  # Q群消息事件响应
+    if event.group_id in pluginConfig.config.mc_qqgroup_id and pluginConfig.config.enable:  # 确认Q群在获准名单内
+        await before_handle_message(bot, str(event.message_id))
         await asyncio.sleep(0.5)  # 延时0.5s 防止风控
         await HelpCommand.finish(MessageDefine.group_help_message, at_sender=True)
 
@@ -132,11 +148,12 @@ PingCommand = on_command("ping", priority=0, block=True)
 
 
 @PingCommand.handle()
-async def _(event_group: ob_event_GroupMessageEvent, args: Message = CommandArg()):
-    if event_group.group_id in pluginConfig.config.mc_qqgroup_id and pluginConfig.config.enable:  # 确认Q群在获准名单内
+async def _(event: ob_event_GroupMessageEvent, bot: ob_Bot, args: Message = CommandArg()):
+    if event.group_id in pluginConfig.config.mc_qqgroup_id and pluginConfig.config.enable:  # 确认Q群在获准名单内
+        await before_handle_message(bot, str(event.message_id))
 
         mc_server = mc_MinecraftServer(
-            args.extract_plain_text(), pluginConfig.config, event_group.group_id)
+            args.extract_plain_text(), pluginConfig.config, event.group_id)
 
         ping_server_return = await mc_server.ping_server()
         if isinstance(ping_server_return, str):          # 如果返回的是字符串，说明出现了错误
@@ -156,13 +173,46 @@ async def _(event_group: ob_event_GroupMessageEvent, args: Message = CommandArg(
         await asyncio.sleep(0.5)
         await PingCommand.finish(message=return_message, at_sender=True)
 
+# 命令 ~vwl 执行VelocityWhiteList命令
+VwlCommand = on_command("vwl", priority=0, block=True)
+
+#TODO: 应该设计为私聊/群聊可以使用这个命令，但是私聊需要保存服务器管理员的QQ号才能确定在修改哪个服务器的白名单
+@VwlCommand.handle()
+async def _(event_group: ob_event_GroupMessageEvent, cmd: Message = CommandArg()):
+    args = split_args(cmd.extract_plain_text()) # 分割参数
+    return_message = await handle_vwl_command(args, pluginConfig, event_group.group_id)
+    await asyncio.sleep(0.5)  # 延时0.5s 防止风控
+    await VwlCommand.finish(return_message)
+
+
+# 命令 ~conf 执行配置命令
+ConfCommand = on_command(
+    "conf", priority=0, block=True, permission=GROUP_OWNER | GROUP_ADMIN | SUPERUSER)
+
+
+@ConfCommand.handle()
+async def _(event: ob_event_GroupMessageEvent | ob_event_PrivateMessageEvent, bot: ob_Bot, cmd: Message = CommandArg()):  # Q群消息事件响应
+    args = cmd.extract_plain_text().split(" ")  # 分割参数
+    return_message = ""
+    if isinstance(event, ob_event_GroupMessageEvent) and event.group_id in pluginConfig.config.mc_qqgroup_id:
+        await before_handle_message(bot, str(event.message_id))
+        return_message = await handle_groupadmin_conf_command(args, pluginConfig, event.group_id)
+    elif isinstance(event, ob_event_PrivateMessageEvent) and str(event.user_id) in globalConfig.superusers:
+        await before_handle_message(bot, str(event.message_id))
+        return_message = await handle_superuser_conf_command(args, pluginConfig)
+    else:
+        return False
+    await asyncio.sleep(0.5)  # 延时0.5s 防止风控
+    await ConfCommand.finish(return_message)
+
 # 命令 ~about 显示插件信息
 AboutCommand = on_command("about", priority=0, block=True)
 
 
 @AboutCommand.handle()
-async def _(event: ob_event_GroupMessageEvent):  # Q群消息事件响应
+async def _(event: ob_event_GroupMessageEvent, bot: ob_Bot):  # Q群消息事件响应
     if event.group_id in pluginConfig.config.mc_qqgroup_id and pluginConfig.config.enable:  # 确认Q群在获准名单内
+        await before_handle_message(bot, str(event.message_id))
         await asyncio.sleep(0.5)  # 延时0.5s 防止风控
         await AboutCommand.finish(ob_message_MessageSegment.image(PictureDefine.about), at_sender=True)
 
@@ -191,13 +241,36 @@ async def reload_plugin_config() -> str:
         return_message = MessageDefine.logger_reload_sth_wrong
     return return_message
 
+
+# 处理~vwl命令调用
+
+
+async def handle_vwl_command(args: list[str], plugin_config: ConfigHandler, groupid: int = 0) -> str:
+    """处理~vwl命令调用"""
+    match args[0]:
+        case "help":
+            return_message = MessageDefine.public_vwl_command_help + "\n Under Construction"
+
+        case "add":
+            pass
+
+        case "del":
+            pass
+
+        case "list":
+            pass
+
+        case _:
+            return_message = MessageDefine.args_do_not_exist
+
+    return return_message
+
 # 处理~conf GroupAdmin命令调用
 
 
 async def handle_groupadmin_conf_command(args: list[str], plugin_config: ConfigHandler, groupid: int = 0) -> str:
     """处理~conf GroupAdmin命令调用"""
-    config_list = ["default_icon", "default_icon_type",
-                   "need_scan", "serverAddress"]
+
     match args[0]:
         case "status":
             return_message = MessageDefine().command_groupadmin_status_message(
@@ -206,29 +279,11 @@ async def handle_groupadmin_conf_command(args: list[str], plugin_config: ConfigH
             return_message = MessageDefine.public_groupadmin_command_help
 
         case "get":
-            if len(args) != 2 or args[1] not in config_list:
-                return_message = MessageDefine.args_error_get_command
-            else:
-                return_message = str(
-                    plugin_config.config.mc_qqgroup_default_server[groupid][args[1]])
-                if return_message == "":
-                    return_message = MessageDefine.conf_is_none
+            return_message = plugin_config.get_config(args, groupid)
 
         case "set":
-            try:
-                value = convert_string(args[2])
-                if len(args) != 3 or args[1] not in config_list:
-                    return_message = MessageDefine.args_error_set_command
-                else:
-                    plugin_config.config.mc_qqgroup_default_server[groupid][args[1]] = value
-                    plugin_config.save_config()
-                    return_message = MessageDefine(
-                    ).command_set_sueccess(args[1], args[2])
-                    await reload_plugin_config()
-            except IndexError:
-                return_message = MessageDefine.conf_get_args_is_none
-            except (ValueError, SyntaxError):
-                return_message = MessageDefine.args_error_set_command
+            return_message = plugin_config.set_config(args, groupid)
+            await reload_plugin_config()
 
         case _:
             return_message = MessageDefine.args_do_not_exist
@@ -240,8 +295,6 @@ async def handle_groupadmin_conf_command(args: list[str], plugin_config: ConfigH
 
 async def handle_superuser_conf_command(args: list[str], plugin_config: ConfigHandler) -> str:
     """处理~conf Superuser命令调用"""
-    config_list = ["enable", "mc_qqgroup_id", "mc_global_default_server", "mc_global_default_icon",
-                   "mc_ping_server_interval_second", "mc_qqgroup_default_server", "mc_serverscaner_enable"]
     match args[0]:
         case "qqgroup":
             try:
@@ -256,7 +309,7 @@ async def handle_superuser_conf_command(args: list[str], plugin_config: ConfigHa
                             # TODO:这什么鬼变量啊，为什么下标是群号dict里面也放一个群号？你tm当时脑残了啊？
                             plugin_config.config.mc_qqgroup_id.append(value)
                         if value not in plugin_config.config.mc_qqgroup_default_server:
-                            server_config = {'serverAddress': None, 'default_icon_type': 'Server Icon',
+                            server_config = {'server_address': None, 'default_icon_type': 'Server Icon',
                                              'default_icon': '', 'need_scan': False, 'groupID': value}
                             plugin_config.config.mc_qqgroup_default_server[value] = server_config
                             del server_config
@@ -313,36 +366,13 @@ async def handle_superuser_conf_command(args: list[str], plugin_config: ConfigHa
                 return_message = MessageDefine.scanner_already_stopped
 
         case "get":
-            if len(args) != 2 or args[1] not in config_list:
-                return_message = MessageDefine.args_error_get_command
-            else:
-                return_message = str(
-                    plugin_config.config.__getattribute__(args[1]))
-                if return_message == "":
-                    return_message = MessageDefine.conf_is_none
+            return_message = plugin_config.get_config(args, 0)
 
         case "set":
-            try:
-                value = convert_string(args[2])
-                if len(args) != 3 or args[1] not in config_list:
-                    return_message = MessageDefine.args_error_set_command
-                else:
-                    plugin_config.config.__setattr__(args[1], value)
-                    plugin_config.save_config()
-                    return_message = MessageDefine(
-                    ).command_set_sueccess(args[1], args[2])
-                    await reload_plugin_config()
-            except IndexError:
-                return_message = MessageDefine.conf_get_args_is_none
-            except (ValueError, SyntaxError):
-                return_message = MessageDefine.args_error_set_command
+            return_message = plugin_config.set_config(args, 0)
+            await reload_plugin_config()
 
         case _:
             return_message = MessageDefine.args_do_not_exist
 
     return return_message
-
-
-def convert_string(value: str) -> bool | int | float | str | dict:
-    """尝试将字符串转换为对应的类型"""
-    return ast.literal_eval(value)

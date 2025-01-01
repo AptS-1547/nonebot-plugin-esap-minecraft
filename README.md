@@ -19,3 +19,5 @@
     <img src="https://img.shields.io/github/license/AptS-1547/nonebot-plugin-esap-minecraft" alt="GPL-3.0\"/>
   </a>
 </p>
+
+---------------------------

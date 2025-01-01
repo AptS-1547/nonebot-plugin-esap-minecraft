@@ -38,8 +38,8 @@ class MinecraftServer:
     async def ping_server(self) -> str | bool:
         """发送Ping请求，成功返回True，失败返回失败原因(str)"""
         if self.server_address == '':
-            if (self.groupid in self.qqgroup_default_server) and ("serverAddress" in self.qqgroup_default_server[self.groupid]) and self.qqgroup_default_server[self.groupid]["serverAddress"] != "":
-                self.server_address = self.qqgroup_default_server[self.groupid]["serverAddress"]
+            if (self.groupid in self.qqgroup_default_server) and ("server_address" in self.qqgroup_default_server[self.groupid]) and self.qqgroup_default_server[self.groupid]["server_address"] != "":
+                self.server_address = self.qqgroup_default_server[self.groupid]["server_address"]
             elif self.global_default_server != '':
                 self.server_address = self.global_default_server
             else:
@@ -125,7 +125,7 @@ class MinecraftServer:
         """绑定服务器信息"""
         if motd is None:
             motd = []
-        self.server_information = {"serverAddress": self.server_address, "serverType": server_type, "version": version, "onlinePlayers": online_players, "maxPlayers": max_players, "pingLatency": ping_latency, "Icon": icon, "MOTD": motd}
+        self.server_information = {"server_address": self.server_address, "serverType": server_type, "version": version, "onlinePlayers": online_players, "maxPlayers": max_players, "pingLatency": ping_latency, "Icon": icon, "MOTD": motd}
 
     def check_java_server(self, host: str) -> bool | JavaStatusResponse:
         """判断是不是JavaServer，是的话返回JavaStatusResponse，不是返回False（会被ConnectionRefusedError捕捉）"""
