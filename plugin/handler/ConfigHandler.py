@@ -51,7 +51,7 @@ class Config(BaseModel):
 
     mc_global_default_server: str = ""
     mc_global_default_icon: str = ""
-    mc_ping_server_interval_second: int = 60
+    mc_ping_server_interval_second: int = 10
     mc_qqgroup_default_server: dict = {}
 
     mc_serverscaner_status: bool = False
@@ -100,22 +100,24 @@ class ConfigHandler:
     save_config: 保存更改的配置文件，返回bool，无参数
     """
 
-    def __init__(self):
+    @classmethod
+    def initialize(cls):
         """初始化配置信息"""
-        self.error = ""
-        self.config_list_group = ["default_icon", "default_icon_type",
+        cls.error = ""
+        cls.config_file_path = Path(__file__).parent.parent / "config.yml"
+        cls.config_list_group = ["default_icon", "default_icon_type",
                                   "need_scan", "server_address"]
-        self.config_list_superuser = ["enable", "mc_qqgroup_id", "mc_global_default_server", "mc_global_default_icon",
+        cls.config_list_superuser = ["enable", "mc_qqgroup_id", "mc_global_default_server", "mc_global_default_icon",
                                       "mc_ping_server_interval_second", "mc_qqgroup_default_server", "mc_serverscaner_enable"]
-        self.config_file_path = Path(__file__).parent.parent / "config.yml"
-        self.config = self.load_config()
+        cls.config = cls.load_config()
 
-    def load_config(self) -> Config:
+    @classmethod
+    def load_config(cls) -> Config:
         """加载配置文件"""
         try:
-            self.error = ""
+            cls.error = ""
             # TODO: 这里的路径应该是相对路径，而不是绝对路径
-            with open(self.config_file_path, encoding="utf-8", mode="r") as f:
+            with open(cls.config_file_path, encoding="utf-8", mode="r") as f:
                 docs = yaml.safe_load(f)
                 f.close()
 
@@ -123,21 +125,22 @@ class ConfigHandler:
             return config
 
         except FileNotFoundError:
-            self.error = "[epmc_minecraft_bot] 配置文件不存在！请检查你的配置并重载配置文件！"
+            cls.error = "[epmc_minecraft_bot] 配置文件不存在！请检查你的配置并重载配置文件！"
             return Config()
         except ValidationError as e:
-            self.error = "[epmc_minecraft_bot] 配置文件出错！请检查你的配置并重载配置文件！\n" + e.errors()[0]["msg"]
+            cls.error = "[epmc_minecraft_bot] 配置文件出错！请检查你的配置并重载配置文件！\n" + e.errors()[0]["msg"]
             return Config()
         except Exception as e:              # pylint: disable=broad-except
-            self.error = "[epmc_minecraft_bot] 配置文件格式错误！请检查你的配置并重载配置文件！" + str(e)
+            cls.error = "[epmc_minecraft_bot] 配置文件格式错误！请检查你的配置并重载配置文件！" + str(e)
             return Config()
 
-    def save_config(self) -> bool:
+    @classmethod
+    def save_config(cls) -> bool:
         """保存更改的配置文件"""
         try:
-            with open(self.config_file_path, encoding="utf-8", mode="w") as f:
-                config_dict = {"enable": self.config.enable, "mc_qqgroup_id": self.config.mc_qqgroup_id, "mc_global_default_server": self.config.mc_global_default_server, "mc_global_default_icon": self.config.mc_global_default_icon,
-                               "mc_ping_server_interval_second": self.config.mc_ping_server_interval_second, "mc_qqgroup_default_server": self.config.mc_qqgroup_default_server, "mc_serverscaner_enable": self.config.mc_serverscaner_enable}
+            with open(cls.config_file_path, encoding="utf-8", mode="w") as f:
+                config_dict = {"enable": cls.config.enable, "mc_qqgroup_id": cls.config.mc_qqgroup_id, "mc_global_default_server": cls.config.mc_global_default_server, "mc_global_default_icon": cls.config.mc_global_default_icon,
+                               "mc_ping_server_interval_second": cls.config.mc_ping_server_interval_second, "mc_qqgroup_default_server": cls.config.mc_qqgroup_default_server, "mc_serverscaner_enable": cls.config.mc_serverscaner_enable}
                 yaml.dump(config_dict, f)
                 del config_dict
                 f.close()
@@ -145,28 +148,31 @@ class ConfigHandler:
         except:  # pylint: disable=bare-except
             return False
 
-    def reload_config(self) -> None:
+    @classmethod
+    def reload_config(cls) -> None:
         """重载配置文件"""
-        self.config = self.load_config()
+        cls.config = cls.load_config()
 
-    def get_config(self, args: list[str], groupid: int = 0) -> str:
+    @classmethod
+    def get_config(cls, args: list[str], groupid: int = 0) -> str:
         """获取配置文件"""
-        if len(args) != 2 or (args[1] not in self.config_list_group and args[1] not in self.config_list_superuser):
+        if len(args) != 2 or (args[1] not in cls.config_list_group and args[1] not in cls.config_list_superuser):
             return_message = MessageDefine.args_error_get_command
         elif groupid == 0:
-            return_message = MessageDefine().command_get_sueccess(args[1], str(
-                self.config.__getattribute__(args[1])))
+            return_message = MessageDefine.command_get_sueccess(args[1], str(
+                cls.config.__getattribute__(args[1])))
             if return_message == "":
                 return_message = MessageDefine.conf_is_none
         else:
-            return_message = MessageDefine().command_get_sueccess(args[1], str(
-                self.config.mc_qqgroup_default_server[groupid][args[1]]))
+            return_message = MessageDefine.command_get_sueccess(args[1], str(
+                cls.config.mc_qqgroup_default_server[groupid][args[1]]))
             if return_message == "":
                 return_message = MessageDefine.conf_is_none
 
         return return_message
 
-    def set_config(self, args: list[str], groupid: int = 0) -> str:
+    @classmethod
+    def set_config(cls, args: list[str], groupid: int = 0) -> str:
         """设置配置文件"""
         try:
             if args[1] == "need_scan":
@@ -174,20 +180,16 @@ class ConfigHandler:
             else:
                 value = args[2]
 
-            if len(args) != 3 or (args[1] not in self.config_list_superuser and args[1] not in self.config_list_group):
+            if len(args) != 3 or (args[1] not in cls.config_list_superuser and args[1] not in cls.config_list_group):
                 return_message = MessageDefine.args_error_set_command
             elif groupid == 0:
-                self.config.__setattr__(args[1], value)
-                self.save_config()
-                return_message = MessageDefine(
-                ).command_set_sueccess(args[1], args[2])
+                cls.config.__setattr__(args[1], value)
+                cls.save_config()
+                return_message = MessageDefine.command_set_sueccess(args[1], args[2])
             else:
-                print(args[1])
-                self.config.mc_qqgroup_default_server[groupid][args[1]] = value
-                print("here")
-                self.save_config()
-                return_message = MessageDefine(
-                ).command_set_sueccess(args[1], args[2])
+                cls.config.mc_qqgroup_default_server[groupid][args[1]] = value
+                cls.save_config()
+                return_message = MessageDefine.command_set_sueccess(args[1], args[2])
         except IndexError:
             return_message = MessageDefine.conf_get_args_is_none
         except (ValueError, SyntaxError):
