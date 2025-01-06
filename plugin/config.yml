@@ -1,6 +1,8 @@
 enable: true
 
-mc_qqgroup_id: [920838753]
+mc_qqgroup_id:
+- 920838753
+
 mc_global_default_server: ''
 mc_global_default_icon: 'base64://iVBORw0KGgoAAAANSUhEUgAAABQAAAAVCAIAAADJt1n/AAAAKElEQVQ4EWPk5+RmIBcwkasRpG9UM4mhNxpgowFGMARGEwnBIEJVAAAdBgBNAZf+QAAAAABJRU5ErkJggg=='
 

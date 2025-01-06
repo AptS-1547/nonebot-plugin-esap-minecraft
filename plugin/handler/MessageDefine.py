@@ -44,25 +44,30 @@ class MessageDefine:                                     #pylint: disable=missin
     conf_is_none = "此条参数值为None"
     conf_get_args_is_none = "参数不能为空\n输入~conf help查看参数信息"
 
-    def command_get_sueccess(self, key: str = "", value: str = "") -> str:
+    @staticmethod
+    def command_get_sueccess(key: str = "", value: str = "") -> str:
         """获取参数成功"""
         return f"参数： {key} = {value}"
 
-    def command_set_sueccess(self, key: str = "", value: str = "") -> str:
+    @staticmethod
+    def command_set_sueccess(key: str = "", value: str = "") -> str:
         """设置参数成功"""
         return f"已写入参数： {key} = {value}。插件重载中……"
 
-    def command_superuser_status_message(self, plugin_enable: bool = False, scaner_enable: bool = False, scan_server_list: list = []) -> str:    #pylint: disable=dangerous-default-value
+    @staticmethod
+    def command_superuser_status_message(plugin_enable: bool = False, scaner_enable: bool = False, scan_server_list: list = []) -> str:    #pylint: disable=dangerous-default-value
         """插件状态信息"""
         scan_server = ""
         for server in scan_server_list:
             scan_server += f"\n   {server['groupID']}: {server['server_address']} "
         return f"插件状态：{plugin_enable}\n服务器扫描器状态：{scaner_enable}\n服务器扫描列表：{scan_server}"
     
-    def command_groupadmin_status_message(self, plugin_enable: bool = False, scaner_enable: bool = False) -> str:
+    @staticmethod
+    def command_groupadmin_status_message(plugin_enable: bool = False, scaner_enable: bool = False) -> str:
         """插件状态信息"""
         return f"插件状态：{plugin_enable}\n服务器扫描器状态：{scaner_enable}"
     
-    def command_qqgroup_success(self, action: str = "", groupid: int = 0) -> str:
+    @staticmethod
+    def command_qqgroup_success(action: str = "", groupid: int = 0) -> str:
         """QQgroup命令执行成功"""
         return f"已{action}QQ群：{groupid}"
