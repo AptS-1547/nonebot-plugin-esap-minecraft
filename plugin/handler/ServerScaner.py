@@ -50,16 +50,21 @@ class ServerScaner:
         """
         self.bot = bot
 
-    async def run_every_two_minutes(self, _: int, arg2: list, arg3: Bot) -> None:
+    async def run_scanner(self, _: int, arg2: list, arg3: Bot) -> None:
         """
         每两分钟运行一次的任务
         :param arg1: 参数1
         :param arg2: 服务器配置列表
         :param arg3: 机器人对象
         """
+
+        logger.debug("服务器扫描器开始扫描")
         for scan_config in arg2:
             mc_server = mc_MinecraftServer(scan_config["server_address"], self.plugin_config, scan_config["groupID"])
             ping_server_return = await mc_server.ping_server()
+
+            logger.debug(f"服务器{scan_config['server_address']}的ping结果：{ping_server_return}")
+
             if isinstance(ping_server_return, str):  # 连接不上的反馈
                 if scan_config["groupID"] not in self.scan_server_not_connect:
                     self.scan_server_not_connect.append(scan_config["groupID"])
@@ -80,9 +85,11 @@ class ServerScaner:
         """
         if not self.scan_server_list:
             return False
+        
+        logger.debug("服务器扫描器已启动")
 
         nb_scheduler.add_job(
-            self.run_every_two_minutes, "interval", minutes=self.plugin_config.mc_ping_server_interval_second, id="job_scan_server", args=[1], kwargs={"arg2": self.scan_server_list, "arg3": self.bot}
+            self.run_scanner, "interval", seconds=self.plugin_config.mc_ping_server_interval_second, id="job_scan_server", max_instances=5, args=[1], kwargs={"arg2": self.scan_server_list, "arg3": self.bot}
         )
         return True
 
