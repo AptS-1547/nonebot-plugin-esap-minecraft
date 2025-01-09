@@ -3,7 +3,7 @@
 </h1>
 
 <p align="center">
-  Do not use it! - This plugin is under construction!
+  An Simple Minecraft Server Status Plugin for NoneBot
 </p>
 
 <p align="center">
@@ -21,3 +21,13 @@
 </p>
 
 ---------------------------
+
+**IMPORTANT: This plugin is still under development and may not work properly.**  
+**AND THIS PLUGIN IS NOT READY FOR PRODUCTION USE.**
+**USE IT AT YOUR OWN RISK.**
+
+## Installation
+
+```shell
+pip install nonebot-plugin-minecraft-bot
+```
