@@ -1,0 +1,17 @@
+<Picture>
+    <Icon  width="400" height="400" round_corner="100" position="215,200"/>
+
+    <TextGroup alignment="center">
+        <Text content="{serverAddress}" font="MinecraftFont.ttf" font_size="80" color="45,215,29" text_position="420,695"/>
+        <Text content="{serverType} {version}" font="MinecraftFont.ttf" font_size="80" color="45,215,9" text_position="420,795"/>
+    </TextGroup>
+
+    <TextGroup alignment="left">
+        <Text content="当前在线玩家数：{onlinePlayers}/{maxPlayers}" font="MinecraftFont.ttf" font_size="80" color="45,215,209" text_position="928,80"/>
+        <Text content="服务器Ping请求所用时间：{pingLatency}ms" font="MinecraftFont.ttf" font_size="80" color="5,215,209" text_position="928,450"/>
+    </TextGroup>
+
+    <Text content="这是一个演示Demo" font="MinecraftFont.ttf" font_size="100" color="45,215,209" text_position="928,780"/>
+    <Text content="这是一个演示Demo2" font="MinecraftFont.ttf" font_size="100" color="45,215,209" text_position="928,900"/>
+    <MOTD position="928,210" content="{motd_str}" font="MinecraftFont.ttf" font_size = "800" color="255,255,255"/>
+</Picture>

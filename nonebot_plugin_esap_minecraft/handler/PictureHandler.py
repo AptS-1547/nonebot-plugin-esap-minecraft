@@ -5,6 +5,9 @@ Use of this source code is governed by a GPL-3.0 license that can be found in th
 图片处理类 PictureHandler.py 2024-10-21
 Author: AptS:1547
 
+LastUpdate: 2025-01-10
+LastUpdateBy: LatosProject
+
 PictureHandler类用于处理图片的生成，提供了以下方法：
 MakePicture: 生成最终返回的图片
 open_base64_image: PIL打开base64图片
@@ -21,45 +24,34 @@ from PIL import Image, ImageDraw, ImageFont, UnidentifiedImageError
 
 from mcstatus.motd.components import Formatting, MinecraftColor
 
-from .PictureDefine import PictureDefine                               #pylint: disable=relative-beyond-top-level
+from .ParseLayout import ParseLayout
+from .PictureDefine import PictureDefine  # pylint: disable=relative-beyond-top-level
+
 
 class PictureHandler:
     """图片处理类"""
-    def __init__(self, information: dict) -> None:
+
+    def __init__(self, information: dict, xml_layout: str) -> None:
         """
         输入格式：
             Information应该包括服务器地址、端口、版本、MOTD、服务器图标以及当前在线玩家数和玩家名称等
             base64image不能有data:image/png;base64,前缀
         """
         self.information = information
-        self.left_font_location = PictureDefine.MinecraftFont
-        self.right_font_location = PictureDefine.MinecraftFont
+        self.parse_layout = ParseLayout(xml_layout, information)
+        """背景"""
         self.image = self.open_base64_image(PictureDefine.Background)
 
     def make_picture(self) -> Image.Image:
         """生成最终返回的图片"""
         # 服务器图标
-        icon = self.open_base64_image(self.information["Icon"]).resize((400, 400))
-        icon = self.round_corner(icon, 22)
-        icon_alpha_channel = icon.split()[-1]
-        self.image.paste(icon, (215, 200), mask=icon_alpha_channel)
-
-        text_list_left = [self.information["server_address"], f"{self.information['serverType']} {self.information['version']}"]
-
-        self.image = self.left_middle_font(self.image, text_list_left, (45, 215, 209))
-
-        # TODO:在图片右方模块写字，按理来说应该让这个函数确定绘制高度
-
-        text_start_height = 80
-        text_right = f"当前在线玩家数：{self.information['onlinePlayers']}/{self.information['maxPlayers']}"
-        self.image, text_start_height = self.right_middle_font(self.image, text_right, text_start_height, 80, (45, 215, 209))
-
-        self.image, text_start_height = self.dealing_motd(self.image, text_start_height, self.information["MOTD"])
-
-        text_start_height += 50
-        text_right = f"服务器Ping请求所用时间：{round(self.information['pingLatency'],2)}ms"
-        self.image, _ = self.right_middle_font(self.image, text_right, text_start_height, 80, (45, 215, 209))
-
+        self.image = self.draw_icon()
+        # 文本组
+        self.image = self.draw_text_group(self.parse_layout._parse_text_groups())
+        # 文本
+        self.image = self.draw_text(self.parse_layout._parse_text(), self.image)
+        # Motd
+        self.image = self.draw_motd(self.image)[0]
         return self.image
 
     def open_base64_image(self, base64_str):
@@ -89,42 +81,54 @@ class PictureHandler:
         img.putalpha(alpha)
         return img
 
-    def left_middle_font(self, img: Image.Image, text: list, rgb: tuple = (0,0,0)) -> Image.Image:
-        """在图片左方模块写字"""
+    def draw_text(self, text: list, img: Image.Image, alignment: str = "left") -> Image.Image:
+        # 判断 TextGroup 还是 Text
         draw = ImageDraw.Draw(img)
-        font_size = 80
-        text_start_height = 682
+        if isinstance(text, dict) and 'texts' in text:
+            for text_line in text['texts']:
+                text_content = text_line['content']
+                text_color = text_line['color']
+                text_size = text_line["font_size"]
+                text_position = text_line["text_position"]
+                text_font = ImageFont.truetype(text_line["font"], text_size)
 
-        for text_line in text:
-            font = ImageFont.truetype(self.left_font_location, font_size)
-            (text_width, text_height), (_, _) = font.font.getsize(text_line)
+                text_bbox = draw.textbbox((0, 0), text_content, font=text_font)
+                text_width, text_height = text_bbox[2] - text_bbox[0], text_bbox[3] - text_bbox[1]
 
-            while text_width > 680:
-                font = ImageFont.truetype(self.left_font_location, font_size)
-                (text_width, text_height), (_, _) = font.font.getsize(text_line)
-                font_size -= 1
-            draw.text(((830 - text_width) // 2, text_start_height), text_line, font=font, fill=rgb)
-            text_start_height += text_height + 50
+                # 根据对齐方式调整文本位置
+                if alignment == "center":
+                    text_position = (text_position[0] - text_width // 2, text_position[1])
+                elif alignment == "right":
+                    text_position = (text_position[0] - text_width, text_position[1])
+                # 默认情况下左对齐
+
+                draw.text(text_position, text_content, font=text_font, fill=text_color)
+        else:
+            for text_line in text:
+                text_content = text_line['content']
+                text_color = text_line['color']
+                text_size = text_line["font_size"]
+                text_position = text_line["text_position"]
+                text_font = ImageFont.truetype(text_line["font"], text_size)
+                draw.text(text_position, text_content, font=text_font, fill=text_color)
         return img
 
-    def right_middle_font(self, img: Image.Image, text: str, height: int, font_size: int = 80, rgb: tuple = (0,0,0)) -> tuple:
-        """在图片右方模块写字"""
-        draw = ImageDraw.Draw(img)
+    def draw_text_group(self, text_group: list) -> Image.Image:
+        img = self.image
+        for text in text_group:
+            img = self.draw_text(text, img, alignment=text["alignment"])
+        return img
 
-        font = ImageFont.truetype(self.right_font_location, font_size)
-        (text_width, text_height_right), (_, _) = font.font.getsize(text)
+    def draw_icon(self) -> Image.Image:
+        img = self.image
+        icon_info = self.parse_layout._parse_icon()
+        icon = self.open_base64_image(self.information["Icon"]).resize((icon_info[0], icon_info[1]))
+        icon = self.round_corner(icon, icon_info[2])
+        icon_alpha_channel = icon.split()[-1]
+        self.image.paste(icon, icon_info[3], mask=icon_alpha_channel)
+        return img
 
-        while text_width > 1297:
-            font_size -= 1
-            font = ImageFont.truetype(self.right_font_location, font_size)
-            (text_width, text_height_right), (_, _) = font.font.getsize(text)
-
-        draw.text((928, height), text, font=font, fill=rgb)
-
-        height = height + 50 + text_height_right
-        return img, height
-
-    def dealing_motd(self, img: Image.Image, height: int, motd_parsed = None) -> tuple:     #绘制位置（928,180）
+    def draw_motd(self, img: Image.Image, motd_parsed=None) -> Image.Image:  # 绘制位置（928,180）
         """处理MOTD，暂时不作字体样式的处理"""
         draw = ImageDraw.Draw(img)
         index, motd_style, motd_color = "", "", ""
@@ -135,12 +139,12 @@ class PictureHandler:
         if motd_parsed is None:
             motd_parsed = ["epmcbot提示: 本服务器没有MOTD"]
 
-        if '\n' in motd_parsed:                # 如果有换行符，获取换行符的位置
+        if '\n' in motd_parsed:  # 如果有换行符，获取换行符的位置
             index = motd_parsed.index('\n')
         else:
             index = -1
 
-        for item in motd_parsed:                   # 获取每一行字符串的长度
+        for item in motd_parsed:  # 获取每一行字符串的长度
             if index == -1 and isinstance(item, str):
                 motd_str += item
             if index != -1 and isinstance(item, str):
@@ -149,34 +153,34 @@ class PictureHandler:
                 elif motd_parsed.index(item) > index:
                     motd_str2 += item
 
-        if index == -1 :
+        if index == -1:
             font_size2 = 80
             text_height2 = 70
-            font_size1, text_height1  = self.check_motd_length(motd_str)
+            font_size1, text_height1 = self.check_motd_length(motd_str)
         else:
-            font_size1, text_height1  = self.check_motd_length(motd_str1)
+            font_size1, text_height1 = self.check_motd_length(motd_str1)
             font_size2, text_height2 = self.check_motd_length(motd_str2)
 
         text_height = min(text_height1, text_height2)
 
-        font = ImageFont.truetype(self.right_font_location, font_size1)
-        start_text_length = 928
-        start_text_height = height
+        font = ImageFont.truetype(self.parse_layout._parse_motd()[2], font_size1)
+        start_text_length = self.parse_layout._parse_motd()[1][0]
+        start_text_height = self.parse_layout._parse_motd()[1][1]
 
-        for item in motd_parsed:                   # 开始绘制
-            if motd_parsed.index(item) == 0:       # 设置初始绘制的样式和颜色
+        for item in motd_parsed:  # 开始绘制
+            if motd_parsed.index(item) == 0:  # 设置初始绘制的样式和颜色
                 motd_style = None
-                motd_color = (255,255,255)
+                motd_color = (255, 255, 255)
             elif item == "\n":  # 绘制第二行 - 准备工作
-                start_text_length = 928
+                start_text_length = self.parse_layout._parse_motd()[1][0]
                 start_text_height += text_height + 50
-                font = ImageFont.truetype(self.right_font_location, font_size2)
+                font = ImageFont.truetype(self.self.parse_layout._parse_motd()[2], font_size2)
                 continue
 
             if item == Formatting.RESET and motd_str != "":  # 重置字体样式，并绘制先前已经保存的字符串
                 motd_style = None
-                motd_color = (255,255,255)
-            elif isinstance(item, Formatting):   #返回字体样式
+                motd_color = (255, 255, 255)
+            elif isinstance(item, Formatting):  # 返回字体样式
                 match item:
                     case Formatting.RESET:
                         motd_style = None
@@ -190,57 +194,57 @@ class PictureHandler:
                         motd_style = "strikethrough"
                     case Formatting.OBFUSCATED:
                         motd_style = "obfuscated"
-            elif isinstance(item, MinecraftColor): #返回字体色号RGB
+            elif isinstance(item, MinecraftColor):  # 返回字体色号RGB
                 match item:
                     case MinecraftColor.BLACK:
-                        motd_color = (0,0,0)
+                        motd_color = (0, 0, 0)
                     case MinecraftColor.DARK_BLUE:
-                        motd_color = (0,0,170)
+                        motd_color = (0, 0, 170)
                     case MinecraftColor.DARK_GREEN:
-                        motd_color = (0,170,0)
+                        motd_color = (0, 170, 0)
                     case MinecraftColor.DARK_AQUA:
-                        motd_color = (0,170,170)
+                        motd_color = (0, 170, 170)
                     case MinecraftColor.DARK_RED:
-                        motd_color = (170,0,0)
+                        motd_color = (170, 0, 0)
                     case MinecraftColor.DARK_PURPLE:
-                        motd_color = (170,0,170)
+                        motd_color = (170, 0, 170)
                     case MinecraftColor.GOLD:
-                        motd_color = (255,170,0)
+                        motd_color = (255, 170, 0)
                     case MinecraftColor.GRAY:
-                        motd_color = (170,170,170)
+                        motd_color = (170, 170, 170)
                     case MinecraftColor.DARK_GRAY:
-                        motd_color = (85,85,85)
+                        motd_color = (85, 85, 85)
                     case MinecraftColor.BLUE:
-                        motd_color = (85,85,255)
+                        motd_color = (85, 85, 255)
                     case MinecraftColor.GREEN:
-                        motd_color = (85,255,85)
+                        motd_color = (85, 255, 85)
                     case MinecraftColor.AQUA:
-                        motd_color = (85,255,255)
+                        motd_color = (85, 255, 255)
                     case MinecraftColor.RED:
-                        motd_color = (255,85,85)
+                        motd_color = (255, 85, 85)
                     case MinecraftColor.LIGHT_PURPLE:
-                        motd_color = (255,85,255)
+                        motd_color = (255, 85, 255)
                     case MinecraftColor.YELLOW:
-                        motd_color = (255,255,85)
+                        motd_color = (255, 255, 85)
                     case MinecraftColor.WHITE:
-                        motd_color = (255,255,255)
+                        motd_color = (255, 255, 255)
                     case MinecraftColor.MINECOIN_GOLD:
-                        motd_color = (221,214,5)
+                        motd_color = (221, 214, 5)
                     # 超绝高血压
             elif isinstance(item, str) and item != "":
                 (text_width, _), (_, _) = font.font.getsize(item)
                 draw.text((start_text_length, start_text_height), item, font=font, fill=motd_color)
                 start_text_length += text_width
 
-        return img, height + 100 + text_height*2
+        return img, self.parse_layout._parse_motd()[1][1] + 100 + text_height * 2
 
     def check_motd_length(self, motd: str) -> tuple:
         """检查MOTD长度"""
         font_size = 80
-        font = ImageFont.truetype(self.right_font_location, font_size)
+        font = ImageFont.truetype(self.parse_layout._parse_motd()[2], font_size)
         (text_width, text_height), (_, _) = font.font.getsize(motd)
         while text_width > 1297:
             font_size -= 1
-            font = ImageFont.truetype(self.right_font_location, font_size)
+            font = ImageFont.truetype(self.parse_layout._parse_motd()[2], font_size)
             (text_width, text_height), (_, _) = font.font.getsize(motd)
         return (font_size, text_height)

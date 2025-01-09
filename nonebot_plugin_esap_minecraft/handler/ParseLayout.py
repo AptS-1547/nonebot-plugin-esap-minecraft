@@ -9,7 +9,7 @@ _parse_text_groups: 解析文本组
 _parse_motd: 解析motd
 """
 
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET
 
 
 class ParseLayout:
@@ -41,9 +41,9 @@ class ParseLayout:
         icon = self.root.find('Icon')
         if icon is not None:
             # source = icon.get('source')
-            width = icon.get('width')
-            height = icon.get('height')
-            round_corner = icon.get('round_corner')
+            width = int(icon.get('width'))
+            height = int(icon.get('height'))
+            round_corner = int(icon.get('round_corner'))
             position = tuple(map(int, icon.get('position').split(',')))
             return width, height, round_corner, position
         else:
@@ -84,7 +84,7 @@ class ParseLayout:
                 content = content.replace(placeholder, value)
 
             font = text.get('font')
-            font_size = text.get('font_size')
+            font_size = int(text.get('font_size'))
             color = tuple(map(int, text.get('color').split(',')))
             text_position = tuple(map(int, text.get('text_position').split(',')))
             texts.append({
@@ -111,8 +111,10 @@ class ParseLayout:
         text_groups = []
         for group in self.root.findall('TextGroup'):
             alignment = group.get('alignment')
+            self.root = group
             texts = self._parse_text()
             text_groups.append({'alignment': alignment, 'texts': texts})
+            self.root = self.tree.getroot()
         return text_groups
 
     def _parse_motd(self) -> tuple | ValueError:
@@ -120,7 +122,7 @@ class ParseLayout:
         解析 XML 中的 Motd 元素，提取其位置、字体大小、字体、颜色等信息。
 
         返回:
-            - (content, position, font, font_size, color): 返回 MOTD 的信息、位置元组、字体、字体大小和颜色元组。
+            - (content, position, font, font_size, color): 返回 MOTD 的信息、位置元组、字体、字体大小。
             如果找不到 Motd 元素，则抛出 ValueError。
 
         异常:
@@ -131,9 +133,9 @@ class ParseLayout:
             content = motd.get('content')
             content = content.replace("{motd_str}", str(self.information['MOTD']))
             position = tuple(map(int, motd.get('position').split(',')))
+            # TODO font_size
             font_size = motd.get('font_size')
             font = motd.get('font')
-            color = tuple(map(int, motd.get('color').split(',')))
-            return content, position, font, font_size, color
+            return content, position, font, font_size
         else:
             return ValueError("MOTD element not found")
